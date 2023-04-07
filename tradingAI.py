@@ -655,6 +655,30 @@ class IBapi(EWrapper, EClient):
         EClient.__init__(self, self)
         self.nextOrderId = 0
 
+    def placeOrder(self, orderId, contract, order):
+        self.placeOrder(orderId, contract, order)
+
+    def place_order(contract_symbol, contract_secType, contract_exchange, contract_currency, order_type, order_action, order_quantity, order_price, order_id):
+        app = IBapi()
+        app.connect("192.168.56.1", 7497, clientId=23467)
+
+        # Calculate order quantity
+
+        quantity = calculate_units(blance, prices)
+
+        # Create order object
+
+        order = Order()
+        if signal == 'BUY':
+            order.action = 'BUY'
+        elif signal == 'SELL':
+            order.action = 'SELL'
+        order.totalQuantity = quantity
+        order.orderType = 'MKT'
+
+
+    
+
     def nextValidId(self, orderId: int):
         super().nextValidId(orderId)
         self.nextOrderId = orderId
