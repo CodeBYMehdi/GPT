@@ -734,7 +734,7 @@ def main():
     contract = Contract()
     contract.symbol = EURUSD
     contract.secType = "forex"
-    contract.exchange = "SMART"
+    contract.exchange = "MKT"
     contract.currency = "EUR"
 
     # Get the current market price for the selected symbol
@@ -764,7 +764,7 @@ if __name__ == "__main__":
     ib.connect('192.168.56.1', 7497, clientId=23467)
 
     # Request market data for EURUSD
-    contract = ib_insync.Forex('EURUSD', 'SMART', 'EUR')
+    contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
     ticker = ib.reqMktData(contract)
 
     while True:
@@ -810,5 +810,5 @@ ib = ib_insync.ib.IB()
 ib.connect('192.168.56.1', 7497, clientId=23467)
 
 # Request market data for EURUSD
-contract = ib_insync.Forex('EURUSD', 'SMART', 'EUR')
+contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
 ticker = ib.reqMktData(contract)
