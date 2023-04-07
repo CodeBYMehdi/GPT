@@ -31,16 +31,16 @@ from sklearn.preprocessing import StandardScaler
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
+from ibapi.account_summary_tags import AccountSummaryTags
 from ibapi.order import *
 import ib_insync
+
 
 # Deep learning modules
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM
 from tensorflow.keras.optimizers import Adam
 
-# Finance Module
-import blpapi
 
 # Initialize OpenAI API key
 
@@ -63,6 +63,11 @@ from fredapi import Fred
 
 fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
+# IBapi equals to app
+
+
+
+
 # Fetch data from Nasdaq database
 
 forex_data = fred.get_series('DEXUSEU').tail(1)[0]
@@ -72,6 +77,17 @@ stocks_data = get("NASDAQOMX/COMP-INDEX")
 print(type(stocks_data))
 
 
+def market_price(symbol):
+    url = f"https://api.stlouisfed.org/fred/series/observations?series_id=DEXUSEU&frequency=daily&api_key=3c42f5fbde4207ebc90bbbf7c2d47beb&file_type=json"
+    response = requests.get(url)
+    data = response.json()
+    lastest_data = data["observations"][-1]
+    price = float(lastest_data['value'])
+    return price
+    
+    def account_summary(self, reqId, account, tag, value, currency):
+        if tag == AccountSummaryTags.TotalCashBalance:
+            self.balance = value
 
 
 
@@ -145,7 +161,7 @@ for symbol in markets:
 
 
 # Define function to get market demand based on the bid size of the latest quote
-def get_market_demand(market, stocks_data, last_demand):
+def get_market_demand(market, stocks_data, forex_data):
     if market == "forex":
         demand_data = forex_data
         return demand_data
@@ -157,7 +173,7 @@ def get_market_demand(market, stocks_data, last_demand):
         return {}
 
 # Define function to get market supply based on recent volume movements and all trades in the past
-def get_market_supply(market, stocks_data, last_demand):
+def get_market_supply(market, stocks_data, forex_data):
     if market == "forex":
         supply_data = forex_data
         return supply_data
@@ -201,11 +217,26 @@ def make_decision(data):
 
 
 
-    # Define function to execute trades based on generated prompts
 
-# Define function to execute trades based on generated prompts
 
-# Define function to execute trades based on generated prompts
+
+
+def calculate_units(balance, symbol):
+    # Calculate the units to buy based on a percentage of amount balance
+    units = int((balance * 0.5) / market_price)
+    units = calculate_units(balance, symbol)
+    
+    return units
+
+def account_summary(self, reqId, account, tag, value, currency):
+    if account == "U11643091":
+        self.account_info[tag] = float(value)
+
+
+
+balance = account_summary['NetLiquidation']
+
+
 
 def execute_trade(exchange, market, side, type, take_profit, price, symbol, amount):
 
@@ -225,15 +256,18 @@ def execute_trade(exchange, market, side, type, take_profit, price, symbol, amou
         # Print trade prompt
         print("Trade prompt:", prompt)
 
-        # Place order using the market API
-        if market == "forex":
-            market_data = forex_data
-            symbol = symbol + "/USD"
-            amount = calculate_units(exchange, symbol, amount)
-            order = exchange.create_market_buy_order(symbol, amount)
-        elif market == "stocks":
-            market_data = stocks_data
-            order = exchange.create_order(symbol, type, side, amount, price)
+       # Execute trade based on prompt using the market API
+    if market == "forex":
+        market_data = forex_data
+    if execute_trade:
+        units = calculate_units(balance, symbol)
+        exchange.create_market_buy_order(symbol, units)
+    elif market == "stocks":
+        market_data = stocks_data
+    if execute_trade:
+        units = calculate_units(balance, symbol)
+        exchange.create_market_buy_order(symbol, units)
+
 
         # Print order creation result
         print(f"Order {order['id']} successfully created")
@@ -664,6 +698,40 @@ class IBapi(EWrapper, EClient):
         contract.secType = "forex"
         contract.exchange = "MKT"
         contract.currency = "EUR"
+
+    def error(self, reqId, errorCode, errorString):
+        print("Error {} for request {}: {}".format(errorCode, reqId, errorString))
+
+    def historical_data(self, reqId: int, bar: BarData):
+        pass
+
+    def orderStatus(self, orderId: int, status: str, filled: float, remaining: float, avgFillPrice: float, 
+                    permId: int, parentId: int, lastFillPrice: float, clientId: int, whyHeld: str, mktCapPrice: float):
+        pass
+
+    def nextValidId(self, orderId: int):
+        pass
+
+    def get_account_summary(self):
+        self.reqId += 1
+        self.done = False
+        self.account_info = {}
+        self.reqAccountSummary(self.reqId, "All", AccountSummaryTags.AllTags)
+        while not self.done:
+            time.sleep(0.1)
+        return self.account_info
+
+    def account_summary_end(self):
+        self.done = True
+
+    def nextOrderId(self):
+        oid = self.orderId
+        self.orderId += 1
+
+
+
+
+    
         
         
         
@@ -694,13 +762,7 @@ class IBapi(EWrapper, EClient):
         print("HistoricalData. ", reqId, bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume, bar.count, bar.wap, bar.hasGaps)
 
 
-def calculate_units(balance, symbol):
-    # Get the current market price of the symbol
-    market_price = blpapi.get_last_price(symbol)
 
-    # Calculate the units to buy based on a percentage of the account balance
-    units = int((balance * 0.05) / market_price)
-    return units
 
 
 def select_best_symbol():
