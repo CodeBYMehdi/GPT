@@ -664,7 +664,7 @@ class IBapi(EWrapper, EClient):
 
         # Calculate order quantity
 
-        quantity = calculate_units(blance, prices)
+        quantity = calculate_units(contract_symbol, signal)
 
         # Create order object
 
@@ -675,6 +675,14 @@ class IBapi(EWrapper, EClient):
             order.action = 'SELL'
         order.totalQuantity = quantity
         order.orderType = 'MKT'
+        order_id = 1
+        
+        
+        
+        
+        app.placeOrder(order_id, order, Contract)
+
+
 
 
     
