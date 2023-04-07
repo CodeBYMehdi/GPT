@@ -171,37 +171,8 @@ def get_market_supply(market, stocks_data, last_demand):
 
 
 
-# Define function to execute trades based on generated prompts
-def execute_trade(exchange, market, side, type, take_profit, price, symbol, amount):
-    # Get market demand and supply data
-    demand = get_market_demand(market, forex_data, stocks_data)
-    supply = get_market_supply(market, forex_data, stocks_data)
-    
-    # Process data and make a decision
-    data = np.array([demand, supply, side, type, take_profit, price, amount])
-    decision = make_decision(data)
-    
-    # If decision is to execute trade, generate prompt and execute trade
-    if decision == 1:
-        # Generate trade prompt based on supply and demand using the GPT-3 API
-        prompt = generate_prompt(market)
 
-        # Print trade prompt
-        print("Trade prompt:", prompt)
 
-        # Execute trade based on prompt using the market API
-        try:
-            order = exchange.create_order(symbol, type, side, amount, price)
-            print(f"Order {order['id']} successfully created")
-            trade_placed = True
-            return trade_placed
-        except (ccxt.ExchangeError, ccxt.NetworkError) as error:
-            print(f"Failed to create order: {error}")
-            return False
-    
-    # If decision is not to execute trade, return False
-    else:
-        return False
 
 # Define function to make a decision based on input data
 def make_decision(data):
@@ -234,6 +205,8 @@ def make_decision(data):
 
 # Define function to execute trades based on generated prompts
 
+# Define function to execute trades based on generated prompts
+
 def execute_trade(exchange, market, side, type, take_profit, price, symbol, amount):
 
     # Get market demand and supply data
@@ -252,19 +225,28 @@ def execute_trade(exchange, market, side, type, take_profit, price, symbol, amou
         # Print trade prompt
         print("Trade prompt:", prompt)
 
-        # Execute trade based on prompt using the market API
+        # Place order using the market API
         if market == "forex":
             market_data = forex_data
+            symbol = symbol + "/USD"
+            amount = calculate_units(exchange, symbol, amount)
+            order = exchange.create_market_buy_order(symbol, amount)
         elif market == "stocks":
             market_data = stocks_data
+            order = exchange.create_order(symbol, type, side, amount, price)
 
-            
+        # Print order creation result
+        print(f"Order {order['id']} successfully created")
+
+        # Set trade_placed flag to True
         trade_placed = True
+        
         return trade_placed
     
     # If decision is not to execute trade, return False
     else:
         return False
+
         
 # Error handling
         try:
@@ -676,11 +658,19 @@ class IBapi(EWrapper, EClient):
         order.totalQuantity = quantity
         order.orderType = 'MKT'
         order_id = 1
+
+
+        contract.symbol = 'EURUSD'
+        contract.secType = "forex"
+        contract.exchange = "MKT"
+        contract.currency = "EUR"
         
         
         
         
-        app.placeOrder(order_id, order, Contract)
+    app.placeOrder(1, order, Contract)
+
+
 
 
 
@@ -740,7 +730,7 @@ def main():
 
     # Calculate the units to buy based on the account balance and the current market price of the selected symbol
     contract = Contract()
-    contract.symbol = EURUSD
+    contract.symbol = 'EURUSD'
     contract.secType = "forex"
     contract.exchange = "MKT"
     contract.currency = "EUR"
