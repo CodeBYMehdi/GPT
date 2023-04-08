@@ -347,12 +347,12 @@ while True:
         # Execute a trade if the demand is high and the supply is low
         # Execute a trade if the demand is high and the supply is low
 if (demand > demand_threshold).any() and (supply < supply_threshold).any():
-    take_profit = 0.05  # Set take profit value as 5% of the account balance
+    take_profit = 1  # Set take profit value as 5% of the account balance
     execute_trade(market, take_profit)
 
 # Execute a trade if the demand is low and the supply is high
 elif (demand < 1 - demand_threshold).any() and (supply > 1 - supply_threshold).any():
-    take_profit = 0.05  # Set take profit value as 5% of the account balance
+    take_profit = 1  # Set take profit value as 5% of the account balance
     execute_trade(market, take_profit)
 
 
@@ -569,7 +569,7 @@ class RiskManager:
     
     # Set the take profit to a value that maximizes potential profit
  
-    take_profit = 0.05 * self.current_equity 
+    take_profit = 1 * self.current_equity 
     
     # Set the stop loss to a value that minimizes potential loss
     # For example, you can set it to 1% of the account balance
