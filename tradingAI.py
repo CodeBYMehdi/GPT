@@ -33,7 +33,10 @@ from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.account_summary_tags import AccountSummaryTags
 from ibapi.order import *
+from ib_insync import *
 import ib_insync
+
+ib = IB()
 
 
 # Deep learning modules
@@ -48,7 +51,7 @@ openai.api_key = "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"
 
 # Initialize Quandl API KEY
 
-nasdaq_api_key = "L_iAPLZ7AkwV9NpH5L44"
+nasdaq_api_key = "zsVnTRFjsbJa2NjK8nNT"
 
 # Import Dataset
 import nasdaqdatalink
@@ -63,7 +66,20 @@ from fredapi import Fred
 
 fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
-# IBapi equals to app
+# TWS connection
+
+ib.connect('192.168.56.1', 7497, clientId=23467)
+
+if not ib.isConnected():
+    
+    print("Failed to connect to TWS")
+    
+    exit()
+
+
+
+
+
 
 
 
@@ -85,9 +101,9 @@ def market_price(symbol):
     price = float(lastest_data['value'])
     return price
     
-    def account_summary(self, reqId, account, tag, value, currency):
-        if tag == AccountSummaryTags.TotalCashBalance:
-            self.balance = value
+
+
+
 
 
 
@@ -229,12 +245,25 @@ def calculate_units(balance, symbol):
     return units
 
 def account_summary(self, reqId, account, tag, value, currency):
-    if account == "U11643091":
-        self.account_info[tag] = float(value)
+        if tag == AccountSummaryTags.TotalCashBalance:
+            self.balance = value
 
 
 
-balance = account_summary['NetLiquidation']
+
+
+
+# Extract balance from the account summary
+
+account_summary = ib.accountSummary().values()
+
+balance = next((item for item in account_summary if item['tag'] == 'NetLiquidation'), None)
+
+balance = balance['value'] if balance is not None else None
+
+# Print balance
+print(f"Current balance: {balance}")
+
 
 
 
@@ -280,6 +309,15 @@ def execute_trade(exchange, market, side, type, take_profit, price, symbol, amou
     # If decision is not to execute trade, return False
     else:
         return False
+
+    if execute_trade:
+        units = calculate_units(balance, symbol)
+        order = exchange.create_market_buy_order(symbol, units)
+
+    # Print order creation result
+    if order is not None:
+        print(f"Order {order.id} successfully created")
+
 
         
 # Error handling
