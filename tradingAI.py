@@ -47,11 +47,11 @@ from tensorflow.keras.optimizers import Adam
 
 # Initialize OpenAI API key
 
-openai.api_key = "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"
+openai.api_key = "apikey"
 
 # Initialize Quandl API KEY
 
-nasdaq_api_key = "zsVnTRFjsbJa2NjK8nNT"
+nasdaq_api_key = "apikey"
 
 # Import Dataset
 import nasdaqdatalink
@@ -64,7 +64,7 @@ from fredapi import Fred
 
 # Fred API key
 
-fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
+fred = Fred (api_key = 'apikey')
 
 # TWS connection
 
