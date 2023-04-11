@@ -14,6 +14,7 @@ import time
 import datetime
 import numpy as np
 import ta
+import asyncio
 import pandas as pd
 import pandas_datareader.data as web
 import ccxt
@@ -36,7 +37,7 @@ from ibapi.order import *
 from ib_insync import *
 import ib_insync
 
-app = IB()
+
 
 
 
@@ -68,16 +69,23 @@ from fredapi import Fred
 
 fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
-# TWS connection
+# Define asyncio main function
 
-app.connect('192.168.56.1', 7497, clientId=23467)
-app.run()
+async def main():
+    # create IB app object
+    app = IB()
 
-if not app.isConnected():
-    
-    print("Failed to connect to TWS")
-    
-    exit()
+    # connect to IB TWS/IBG
+    await app.connectAsync('192.168.56.1', 7497, clientId=23467, timeout=30)
+
+    # request current time from IB
+    current_time = await app.reqCurrentTime()
+    print('Current time from IB:', current_time)
+
+
+
+# run main function
+asyncio.run(main())
 
 
 
