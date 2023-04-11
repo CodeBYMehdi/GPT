@@ -82,6 +82,9 @@ async def main():
     current_time = await app.reqCurrentTime()
     print('Current time from IB:', current_time)
 
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    asyncio.run(main())
 
 
 # run main function
@@ -726,8 +729,9 @@ class IBapi(EWrapper, EClient):
 
     def place_order(contract_symbol, contract_secType, contract_exchange, contract_currency, order_type, order_action, order_quantity, order_price, order_id):
         
-        app.connect("192.168.56.1", 7497, clientId=23467)
-        app.run()
+
+
+
 
         # Calculate order quantity
 
@@ -832,8 +836,7 @@ def select_best_symbol():
 def main():
     # Connect to IB API
     ib = ib_insync.IB()
-    app.connect('192.168.56.1', 7497, clientId=23467)
-    app.run()
+
 
     # Get the current account balance
     account = ib.accountSummary()
@@ -868,13 +871,13 @@ def main():
 
 
 
-    app.run()
+
+
 
 if __name__ == "__main__":
     # Connect to IB API
     ib = ib_insync.ib.IB()
-    app.connect('192.168.56.1', 7497, clientId=23467)
-    app.run()
+
 
     # Request market data for EURUSD
     contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
@@ -913,15 +916,16 @@ if __name__ == "__main__":
         time.sleep(60 - now.second)
 
 
-        app.run()
+
+
 
 
 
 
 # Connect to IB API
 ib = ib_insync.ib.IB()
-app.connect('192.168.56.1', 7497, clientId=23467)
-app.run()
+
+
 
 # Request market data for EURUSD
 contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
