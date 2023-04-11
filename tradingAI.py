@@ -36,7 +36,9 @@ from ibapi.order import *
 from ib_insync import *
 import ib_insync
 
-ib = IB()
+app = IB()
+
+
 
 
 # Deep learning modules
@@ -47,11 +49,11 @@ from tensorflow.keras.optimizers import Adam
 
 # Initialize OpenAI API key
 
-openai.api_key = "apikey"
+openai.api_key = "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"
 
 # Initialize Quandl API KEY
 
-nasdaq_api_key = "apikey"
+nasdaq_api_key = "zsVnTRFjsbJa2NjK8nNT"
 
 # Import Dataset
 import nasdaqdatalink
@@ -64,13 +66,14 @@ from fredapi import Fred
 
 # Fred API key
 
-fred = Fred (api_key = 'apikey')
+fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 # TWS connection
 
-ib.connect('192.168.56.1', 7497, clientId=23467)
+app.connect('192.168.56.1', 7497, clientId=23467)
+app.run()
 
-if not ib.isConnected():
+if not app.isConnected():
     
     print("Failed to connect to TWS")
     
@@ -708,13 +711,15 @@ class IBapi(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
         self.nextOrderId = 0
+        app = IBapi()
 
     def placeOrder(self, orderId, contract, order):
         self.placeOrder(orderId, contract, order)
 
     def place_order(contract_symbol, contract_secType, contract_exchange, contract_currency, order_type, order_action, order_quantity, order_price, order_id):
-        app = IBapi()
+        
         app.connect("192.168.56.1", 7497, clientId=23467)
+        app.run()
 
         # Calculate order quantity
 
@@ -819,7 +824,8 @@ def select_best_symbol():
 def main():
     # Connect to IB API
     ib = ib_insync.IB()
-    ib.connect('192.168.56.1', 7497, clientId=23467)
+    app.connect('192.168.56.1', 7497, clientId=23467)
+    app.run()
 
     # Get the current account balance
     account = ib.accountSummary()
@@ -859,7 +865,8 @@ def main():
 if __name__ == "__main__":
     # Connect to IB API
     ib = ib_insync.ib.IB()
-    ib.connect('192.168.56.1', 7497, clientId=23467)
+    app.connect('192.168.56.1', 7497, clientId=23467)
+    app.run()
 
     # Request market data for EURUSD
     contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
@@ -905,7 +912,8 @@ if __name__ == "__main__":
 
 # Connect to IB API
 ib = ib_insync.ib.IB()
-ib.connect('192.168.56.1', 7497, clientId=23467)
+app.connect('192.168.56.1', 7497, clientId=23467)
+app.run()
 
 # Request market data for EURUSD
 contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
