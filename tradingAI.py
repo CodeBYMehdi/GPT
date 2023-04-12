@@ -80,13 +80,17 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 # Define asyncio main function
 async def main():
-    
-    app.disconnect()
-    
-    # create IB app object
-    
-    
+
     app = IB()
+    
+
+    
+    # Disconnect to make sure evrything is running
+
+    
+    
+    
+
 
     try:
         # connect to IB TWS/IBG
@@ -100,6 +104,9 @@ async def main():
 
     except Exception as e:
         print(f"Error: {e}")
+
+    finally:
+        await app.disconnect()
     
 
 
