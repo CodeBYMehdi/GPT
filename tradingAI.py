@@ -90,7 +90,7 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 
 
-async def main():
+async def main_api_connectionf():
     app = IB()
     connected = False
     while not connected:
@@ -756,7 +756,7 @@ class IBapi(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
         self.nextOrderId = 0
-        app = IBapi()
+        
 
     def placeOrder(self, orderId, contract, order):
         self.placeOrder(orderId, contract, order)
