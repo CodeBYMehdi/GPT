@@ -78,43 +78,51 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 
 
-# Define asyncio main function
+
+
+
+
+
+
+
+
+
+
+
+
 async def main():
-
     app = IB()
-    
-
-    
-    # Disconnect to make sure evrything is running
-
-    
-    
-    
-
-
     try:
-        # connect to IB TWS/IBG
-        await app.connectAsync('192.168.56.1', 7497, clientId=23467, timeout=30)
+        app.connect('192.168.56.1', 7497, clientId=23467)
+        print('Connected to TWS.')
 
-        # request current time from IB
-        current_time = await app.reqCurrentTime()
-
-        # print current time
-        print(current_time)
-
+        # Your code here
+        
     except Exception as e:
-        print(f"Error: {e}")
-
+        print(f"API connection failed: {e}")
     finally:
         await app.disconnect()
-    
 
-
-
-
-if __name__ == '__main__':
+try:
     asyncio.run(main())
+except RuntimeError as e:
+    if "This event loop is already running" in str(e):
+        pass
+    else:
+        raise e
+
+
+
+
+
     
+
+
+
+
+
+
+
     
     
     
