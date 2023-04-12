@@ -42,6 +42,7 @@ import ib_insync
 
 
 
+
 # Deep learning modules
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM
@@ -71,6 +72,11 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 # Define asyncio main function
 
+
+
+
+
+
 async def main():
     # create IB app object
     app = IB()
@@ -79,17 +85,19 @@ async def main():
     await app.connectAsync('192.168.56.1', 7497, clientId=23467, timeout=30)
 
     # request current time from IB
-    current_time = await app.reqCurrentTime()
-    print('Current time from IB:', current_time)
+    current_time = app.reqCurrentTime()
 
 if __name__ == "__main__":
+    
+    
+    
+    
     loop = asyncio.get_event_loop()
+    
+    
+    
+    
     asyncio.run(main())
-
-
-# run main function
-asyncio.run(main())
-
 
 
 
@@ -874,9 +882,7 @@ def main():
 
 
 
-if __name__ == "__main__":
-    # Connect to IB API
-    ib = ib_insync.ib.IB()
+
 
 
     # Request market data for EURUSD
