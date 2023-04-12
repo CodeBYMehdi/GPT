@@ -92,24 +92,22 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 async def main():
     app = IB()
-    try:
-        app.connect('192.168.56.1', 7497, clientId=23467)
-        print('Connected to TWS.')
+    connected = False
+    while not connected:
+        try:
+            app.connect('192.168.56.1', 7497, clientId=23467)
+            print('Connected to TWS.')
+            connected = True
+            # Your trading logic goes here
+        except ConnectionRefusedError:
+            print('Failed to connect. Retrying in 10 seconds...')
+            await asyncio.sleep(10)
+        except Exception as e:
+            print(f'An error occurred: {e}. Retrying in 10 seconds...')
+            await asyncio.sleep(10)
 
-        # Your code here
-        
-    except Exception as e:
-        print(f"API connection failed: {e}")
-    finally:
-        await app.disconnect()
 
-try:
-    asyncio.run(main())
-except RuntimeError as e:
-    if "This event loop is already running" in str(e):
-        pass
-    else:
-        raise e
+
 
 
 
