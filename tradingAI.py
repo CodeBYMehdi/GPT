@@ -76,62 +76,6 @@ fred = Fred (api_key = '3c42f5fbde4207ebc90bbbf7c2d47beb')
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-async def main_api_connectionf():
-    app = IB()
-    connected = False
-    while not connected:
-        try:
-            app.connect('192.168.56.1', 7497, clientId=23467)
-            print('Connected to TWS.')
-            connected = True
-            # Your trading logic goes here
-        except ConnectionRefusedError:
-            print('Failed to connect. Retrying in 10 seconds...')
-            await asyncio.sleep(10)
-        except Exception as e:
-            print(f'An error occurred: {e}. Retrying in 10 seconds...')
-            await asyncio.sleep(10)
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-    
-    
-    
-
-
-
-
-
-
-
-
 # Fetch data from Nasdaq database
 
 forex_data = fred.get_series('DEXUSEU').tail(1)[0]
@@ -287,7 +231,7 @@ def make_decision(data):
 
 def calculate_units(balance, symbol):
     # Calculate the units to buy based on a percentage of amount balance
-    units = int((balance * 0.5) / market_price)
+    units = int((balance * 1) / market_price)
     units = calculate_units(balance, symbol)
     
     return units
@@ -302,6 +246,8 @@ def account_summary(self, reqId, account, tag, value, currency):
 
 
 # Extract balance from the account summary
+
+app = IB()
 
 account_summary = app.accountSummary().values()
 
@@ -756,6 +702,8 @@ class IBapi(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
         self.nextOrderId = 0
+
+    app = IBapi()
         
 
     def placeOrder(self, orderId, contract, order):
@@ -816,6 +764,10 @@ class IBapi(EWrapper, EClient):
     def nextOrderId(self):
         oid = self.orderId
         self.orderId += 1
+
+
+    app.connect('192.168.56.1', 7497, 23467)
+    app.run()
 
 
 
