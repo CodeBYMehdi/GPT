@@ -35,7 +35,7 @@ from ibapi.contract import Contract
 from ibapi.account_summary_tags import AccountSummaryTags
 from ibapi.order import *
 from ib_insync import *
-from ib_insync import IB
+from ib_insync import IB, util
 import ib_insync
 
 
@@ -96,7 +96,11 @@ def market_price(symbol):
 
 
 
-
+# Connect to TWS
+util.startLoop()
+app = IB()
+app.connect('192.168.56.1', port=7497, clientId=23467)
+app.run()
 
 
 
