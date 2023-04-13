@@ -706,14 +706,8 @@ class IBapi(EWrapper, EClient):
     app = IBapi()
         
 
-    def placeOrder(self, orderId, contract, order):
-        self.placeOrder(orderId, contract, order)
-
     def place_order(contract_symbol, contract_secType, contract_exchange, contract_currency, order_type, order_action, order_quantity, order_price, order_id):
         
-
-
-
 
         # Calculate order quantity
 
@@ -736,6 +730,10 @@ class IBapi(EWrapper, EClient):
         contract.exchange = "MKT"
         contract.currency = "EUR"
 
+    
+    
+    
+    
     def error(self, reqId, errorCode, errorString):
         print("Error {} for request {}: {}".format(errorCode, reqId, errorString))
 
@@ -763,21 +761,10 @@ class IBapi(EWrapper, EClient):
 
     def nextOrderId(self):
         oid = self.orderId
-        self.orderId += 1
-
-
-    app.connect('192.168.56.1', 7497, 23467)
-    app.run()
-
-
-
-
-    
+        self.orderId += 1        
         
         
-        
-        
-    app.placeOrder(1, order, Contract)
+    app.place_order(1, order, Contract)
 
 
 
