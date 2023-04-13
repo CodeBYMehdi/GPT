@@ -148,17 +148,6 @@ markets.extend(stock_symbols)
 
 
 
-# Print all symbols in markets
-for symbol in markets:
-    print(symbol)
-
-
-# Print the list of available markets
-
-
-for symbol in markets:
-    print(symbol)
-
 
 
 # Define function to get market demand based on recent price movements and all trades in the past
@@ -292,7 +281,7 @@ def execute_trade(exchange, market, side, type, take_profit, price, symbol, amou
         exchange.create_market_buy_order(symbol, units)
 
 
-        # Print order creation result
+        # Log order creation result
         print(f"Order {order['id']} successfully created")
 
         # Set trade_placed flag to True
@@ -850,9 +839,7 @@ def main():
 
 
 
-    # Request market data for EURUSD
-    contract = ib_insync.Forex('EURUSD', 'MKT', 'EUR')
-    ticker = ib.reqMktData(contract)
+
 
     while True:
         now = datetime.now()
@@ -893,8 +880,9 @@ def main():
 
 
 
-# Connect to IB API
-ib = ib_insync.ib.IB()
+
+
+
 
 
 
