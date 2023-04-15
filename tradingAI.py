@@ -51,6 +51,11 @@ from keras.optimizers import Adam
 from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
 
+# Import the technical indicators module
+
+from ta.trend import MACD
+from ta.volatility import BollingerBands
+
 # Initialize openai API key
 
 openai.api_key = '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'
@@ -172,6 +177,27 @@ class DataProcessor:
         X = self.scaler.fit_transform(X)
 
         return X, y
+
+
+class MyTradingStrategy:
+    def __init__(self):
+        self.data = None
+        self.macd = None
+        self.bbands = None
+        
+    def load_data(self):
+
+        
+        # initialize MACD and Bollinger Bands
+        self.macd = MACD(self.data['Close'])
+        self.bbands = BollingerBands(self.data['Close'])
+        
+    def run_strategy(self):
+        # use self.macd and self.bbands to make trading decisions
+        pass
+
+
+
 
 class TechnicalIndicators:
     
