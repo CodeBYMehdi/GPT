@@ -196,6 +196,44 @@ class MyTradingStrategy:
         # use self.macd and self.bbands to make trading decisions
         pass
 
+    def place_order(self, signal):
+        units = self.calculate_units()
+        if signal == 'buy':
+            self.orders.append({'side': 'buy',
+                                'units': units,
+                                'strategy': 'supply_demand'})
+        elif signal == 'sell':
+            self.orders.append({'side': 'sell',
+                                'units': units,
+                                'strategy': 'supply_demand'})
+        elif signal == 'buy_macd':
+            self.orders.append({'side': 'buy',
+                                'units': units,
+                                'strategy': 'macd_bbands'})
+        elif signal == 'sell_macd':
+            self.orders.append({'side': 'sell',
+                                'units': units,
+                                'strategy': 'macd_bbands'})
+        elif signal == 'buy_algo':
+            self.orders.append({'side': 'buy',
+                                'units': units,
+                                'strategy': 'algo_trading'})
+        elif signal == 'sell_algo':
+            self.orders.append({'side': 'sell',
+                                'units': units,
+                                'strategy': 'algo_trading'})
+
+    def cancel_order(self, order_id):
+        order_found = False
+        for order in self.orders:
+            if order.get('id') == order_id:
+                self.orders.remove(order)
+                print(f"Order {order_id} has been cancelled.")
+                order_found = True
+                break
+        if not order_found:
+            print(f"No order found with id {order_id}.")
+
 
 
 
