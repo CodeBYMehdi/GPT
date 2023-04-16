@@ -1,74 +1,3 @@
-'''
-
-                                                    Made by @mehdibj
-
-'''
-# Import the AI's instance
-
-from THEtradingai import *
-
-# Finance modules
-
-import yfinance as yf
-
-# Import the IB modules
-
-from ibapi.client import EClient
-from ibapi.wrapper import EWrapper
-from ibapi.contract import Contract
-from ibapi.account_summary_tags import AccountSummaryTags
-from ibapi.order import *
-from ib_insync import *
-import ib_insync
-
-# Import classic modules
-
-import openai
-import requests
-import exchange
-import json
-import time
-import datetime
-import logging
-import numpy as np
-import ta
-import pandas as pd
-import pandas_datareader.data as web
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from scipy.stats import norm
-
-# Import the machine learning
-
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
-
-# Import Deep Learning modules
-import keras
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM
-from keras.optimizers import Adam
-
-# Import the dataset module
-
-from alpha_vantage.foreignexchange import ForeignExchange
-from alpha_vantage.timeseries import TimeSeries
-
-# Import the technical indicators module
-
-from ta.trend import MACD
-from ta.volatility import BollingerBands
-
-# Initialize openai API key
-
-openai.api_key = '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'
-
-# Initialize Alpha Vantage API key
-
-alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
-
-
-
 class Market:
 
     def __init__(self, symbol):
@@ -584,35 +513,37 @@ app.connect('192.168.56.1', 7497, 23467)
 app.run()
 
 
+
+# Run classes
 if __name__ == '__main__':
     # Run the Market class
-    market = Market()
-    market.run_all()
+    market = Market(symbol='EURUSD')
+    market.run()
 
     # Run the Backtester class
     backtest = Backtester()
-    backtest.run_all()
+    backtest.run()
 
     # Run the Data processor class
     dataprocess = DataProcessor()
-    dataprocess.run_all()
+    dataprocess.run()
 
     # Run the MACDBbands class
     macdbb = MACDBbands()
-    macdbb.run_all()
+    macdbb.run()
 
     # Run the Technical Indicators class
     indicators = TechnicalIndicators()
-    indicators.run_all()
+    indicators.run()
 
     # Run the Algo trading class
     algotrading = AlgoTrading()
-    algotrading.run_all()
+    algotrading.run()
 
     # Run the Supply and Demand class
     supplydemand = SupplyAndDemandTrader()
-    supplydemand.run_all()
+    supplydemand.run()
 
     # Run the Risk manager class
     riskmanagement = RiskManager()
-    riskmanagement.run_all()
+    riskmanagement.run()
