@@ -3,6 +3,10 @@
                                                     Made by @mehdibj
 
 '''
+# Import the AI's instance
+
+from THEtradingai import *
+
 # Finance modules
 
 import yfinance as yf
@@ -574,8 +578,41 @@ class IBapi(EWrapper, EClient):
             print("Today is a weekend, there is no trading. So chill-out dude...")
 
 
-
+# Run the IBapi class
 app = IBapi()
 app.connect('192.168.56.1', 7497, 23467)
 app.run()
 
+
+if __name__ == '__main__':
+    # Run the Market class
+    market = Market()
+    market.run_all()
+
+    # Run the Backtester class
+    backtest = Backtester()
+    backtest.run_all()
+
+    # Run the Data processor class
+    dataprocess = DataProcessor()
+    dataprocess.run_all()
+
+    # Run the MACDBbands class
+    macdbb = MACDBbands()
+    macdbb.run_all()
+
+    # Run the Technical Indicators class
+    indicators = TechnicalIndicators()
+    indicators.run_all()
+
+    # Run the Algo trading class
+    algotrading = AlgoTrading()
+    algotrading.run_all()
+
+    # Run the Supply and Demand class
+    supplydemand = SupplyAndDemandTrader()
+    supplydemand.run_all()
+
+    # Run the Risk manager class
+    riskmanagement = RiskManager()
+    riskmanagement.run_all()
