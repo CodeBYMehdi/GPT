@@ -25,12 +25,11 @@ import exchange
 import json
 import time
 import datetime
+import logging
 import numpy as np
 import ta
-import asyncio
 import pandas as pd
 import pandas_datareader.data as web
-import ccxt
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from scipy.stats import norm
@@ -179,7 +178,7 @@ class DataProcessor:
         return X, y
 
 
-class MyTradingStrategy:
+class MACDBbands:
     def __init__(self):
         self.data = None
         self.macd = None
@@ -191,6 +190,20 @@ class MyTradingStrategy:
         # initialize MACD and Bollinger Bands
         self.macd = MACD(self.data['Close'])
         self.bbands = BollingerBands(self.data['Close'])
+
+        # Error handlin
+        try:
+            self.macd = MACD(self.data['Close'])
+            self.bbands = BollingerBands(self.data['Close'])
+        except ValueError:
+            logging("Error initializing technical indicators. Check your data.")
+            return
+
+
+
+
+
+
         
     def run_strategy(self):
         # use self.macd and self.bbands to make trading decisions
@@ -451,7 +464,6 @@ class SupplyAndDemandTrader:
                     self.account_balance = value
 
 
-
         
 class RiskManager:
     def __init__(self, max_risk_per_trade=0.02, max_open_positions=5):
@@ -557,9 +569,9 @@ class IBapi(EWrapper, EClient):
             elif signal == 'SELL':
                 print("Going short...")
             else:
-                print("No signal to trade mate.")
+                print("No signal to trade with mate.")
         else:
-            print("Today is a weekend, no trades will be executed.")
+            print("Today is a weekend, there is no trading. So chill-out dude...")
 
 
 
