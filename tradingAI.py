@@ -62,11 +62,11 @@ from ta.volatility import BollingerBands
 
 # Initialize openai API key
 
-openai.api_key = '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'
+openai.api_key = 'apikey'
 
 # Initialize Alpha Vantage API key
 
-alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
+alphavantage_api_key = 'apikey'
 
 
 
