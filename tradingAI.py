@@ -3,9 +3,7 @@
                                                     Made by @mehdibj
 
 '''
-# Import the AI's instance
 
-from THEtradingai import *
 
 
 # Finance modules
@@ -31,6 +29,7 @@ import json
 import time
 import datetime
 import logging
+import uuid
 import numpy as np
 import ta
 import pandas as pd
@@ -63,11 +62,11 @@ from ta.volatility import BollingerBands
 
 # Initialize openai API key
 
-openai.api_key = '...'
+openai.api_key = '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'
 
 # Initialize Alpha Vantage API key
 
-alphavantage_api_key = '...'
+alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
 
 
 
@@ -133,7 +132,7 @@ class Backtester():
         return returns
 
 
-    def preprocess_data(data):
+    def preprocess__data(data):
     # Drop any rows with NaN values
         data.dropna(inplace=True)
     
@@ -205,6 +204,24 @@ class MACDBbands:
             logging("Error initializing technical indicators. Check your data.")
             return
 
+    def generate_macd_bbands_signal(self, curr_price):
+        # Get MACD signal
+        macd_signal = self.macd.macd_signal()[-1]
+        macd = self.macd.macd()[-1]
+
+        # Get Bollinger Bands signal
+        upper_band = self.bbands.bollinger_hband()[-1]
+        lower_band = self.bbands.bollinger_lband()[-1]
+
+        if macd_signal > macd and curr_price > upper_band:
+            signal = 'buy_macd'
+        elif macd_signal < macd and curr_price < lower_band:
+            signal = 'sell_macd'
+        else:
+            signal = None
+
+        return signal
+
 
 
 
@@ -215,32 +232,7 @@ class MACDBbands:
         # use self.macd and self.bbands to make trading decisions
         pass
 
-    def place_order(self, signal):
-        units = self.calculate_units()
-        if signal == 'buy':
-            self.orders.append({'side': 'buy',
-                                'units': units,
-                                'strategy': 'supply_demand'})
-        elif signal == 'sell':
-            self.orders.append({'side': 'sell',
-                                'units': units,
-                                'strategy': 'supply_demand'})
-        elif signal == 'buy_macd':
-            self.orders.append({'side': 'buy',
-                                'units': units,
-                                'strategy': 'macd_bbands'})
-        elif signal == 'sell_macd':
-            self.orders.append({'side': 'sell',
-                                'units': units,
-                                'strategy': 'macd_bbands'})
-        elif signal == 'buy_algo':
-            self.orders.append({'side': 'buy',
-                                'units': units,
-                                'strategy': 'algo_trading'})
-        elif signal == 'sell_algo':
-            self.orders.append({'side': 'sell',
-                                'units': units,
-                                'strategy': 'algo_trading'})
+
 
     def cancel_order(self, order_id):
         order_found = False
@@ -278,6 +270,7 @@ class AlgoTrading():
     def __init__(self, starting_funds):
         self.funds = starting_funds
         self.trade_history = []
+        self.orders={}
     
     def algorithmic_strategy(self, prices):
         ma50 = prices.rolling(window=50).mean()
@@ -287,6 +280,42 @@ class AlgoTrading():
         signals[ma50 < ma200] = -1
         return signals
 
+    def place_order(self, order_type, units, instrument):
+        data = {
+            "order": {
+                "units": units,
+                "instrument": instrument,
+             "type": order_type,
+                "stopLossOnFill": {
+                    "timeInForce": "GTC",
+                    "price": str(self.stop_loss)
+                },
+             "takeProfitOnFill": {
+                    "timeInForce": "GTC",
+                    "price": str(self.take_profit)
+                 }
+            }
+        }
+        r = self.api.request("POST", "/v3/accounts/" + self.account_id + "/orders", data=data)
+        print(r.status_code, r.reason, r.headers)
+        print(r.data)
+
+    def buy_algo(prices, short_window=10, long_window=30):
+   # Generate a buy signal using a simple moving average crossover strategy
+        short_ma = prices.rolling(window=short_window).mean()
+        long_ma = prices.rolling(window=long_window).mean()
+        crossover = (short_ma > long_ma) & (short_ma.shift(1) < long_ma.shift(1))
+        return crossover.astype(int)
+
+    def sell_algo(prices, short_window=10, long_window=30):
+        #Generate a sell signal using a simple moving average crossover strategy
+        short_ma = prices.rolling(window=short_window).mean()
+        long_ma = prices.rolling(window=long_window).mean()
+        crossover = (short_ma < long_ma) & (short_ma.shift(1) > long_ma.shift(1))
+        return crossover.astype(int)
+
+
+    
 
 
 
@@ -322,33 +351,7 @@ class SupplyAndDemandTrader:
         
 
 
-    def generate_signals(self, prices, supply, demand, trend, stop_loss, take_profit):
-        avg_supply = np.convolve(supply, np.ones(10) / 10, mode='valid')
-        avg_demand = np.convolve(demand, np.ones(10) / 10, mode='valid')
-
-        # Calculate the ratio of average demand to average supply
-        demand_supply_ratio = avg_demand / avg_supply
-
-        # Generate trading signals based on the ratio of demand to supply
-        signals = np.zeros(prices.shape)
-        signals[demand_supply_ratio > 1.05] = 1
-        signals[demand_supply_ratio < 0.95] = -1
-
-        # Apply stop loss and take profit
-        max_price = np.max(prices)
-        min_price = np.min(prices)
-        for i in range(1, len(prices)):
-            if signals[i] == 1:
-                if prices[i] < (1 - stop_loss) * max_price:
-                    signals[i] = -1
-                elif prices[i] > (1 + take_profit) * max_price:
-                    signals[i] = 0
-            elif signals[i] == -1:
-                if prices[i] > (1 + stop_loss) * min_price:
-                    signals[i] = 1
-                elif prices[i] < (1 - take_profit) * min_price:
-                    signals[i] = 0
-
+    def generate_signals(self, prices, supply, demand, trend, stop_loss, take_profit, threshold=0.05):
         if trend == 'range':
         # Apply the supply and demand strategy
             avg_supply = np.convolve(supply, np.ones(10) / 10, mode='valid')
@@ -359,9 +362,23 @@ class SupplyAndDemandTrader:
             signals[demand_supply_ratio < 0.95] = -1
         else:
         # Apply the algorithmic trading strategy
-            signals = np.zeros(prices.shape)
+            assert len(supply) == len(demand), "Supply and demand arrays must have the same length"
+            buy_signals = np.zeros(len(supply), dtype=bool)
+            sell_signals = np.zeros(len(supply), dtype=bool)
 
-        return signals
+            for i in range(1, len(supply)):
+                supply_ratio = supply[i] / supply[i-1]
+                demand_ratio = demand[i] / demand[i-1]
+                if supply_ratio > (1 + threshold) and demand_ratio < (1 - threshold):
+                # Strong supply increase and demand decrease, signal a sell
+                    sell_signals[i] = True
+                elif supply_ratio < (1 - threshold) and demand_ratio > (1 + threshold):
+                # Strong supply decrease and demand increase, signal a buy
+                    buy_signals[i] = True
+            return buy_signals, sell_signals
+
+
+
 
 
 
@@ -481,6 +498,7 @@ class RiskManager:
     
     def update_equity(self, equity):
         self.current_equity = equity
+        self.equity.append(self.current_equity)
     
     def calculate_risk(self, position_size, stop_loss):
         return position_size * stop_loss
@@ -521,6 +539,71 @@ class RiskManager:
             self.close_position(position)
 
 
+class PlaceCancelOrder:
+    
+    def __init__(self):
+        self.orders = []
+        self.units = None
+
+
+    def place_order(self, signal, symbol, order_type):
+        self.units = self.calculate_units()
+        if signal == 'buy':
+            self.orders.append({'side': 'buy',
+                                'units': self.units,
+                                'strategy': 'supply_demand',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+        elif signal == 'sell':
+            self.orders.append({'side': 'sell',
+                                'units': self.units,
+                                'strategy': 'supply_demand',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+        elif signal == 'buy_macd':
+            self.orders.append({'side': 'buy',
+                                'units': self.units,
+                                'strategy': 'macd_bbands',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+        elif signal == 'sell_macd':
+            self.orders.append({'side': 'sell',
+                                'units': self.units,
+                                'strategy': 'macd_bbands',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+        elif signal == 'buy_algo':
+            self.orders.append({'side': 'buy',
+                                'units': self.units,
+                                'strategy': 'algo_trading',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+        elif signal == 'sell_algo':
+            self.orders.append({'side': 'sell',
+                                'units': self.units,
+                                'strategy': 'algo_trading',
+                                'symbol': symbol,
+                                'type': order_type,
+                                'stop_loss': self.stop_loss,
+                                'take_profit': self.take_profit})
+
+    def cancel_order(self, order_id):
+        request = orders.OrderCancel(self.account_id, orderID=order_id)
+        self.client.request(request)
+        for order in self.orders:
+            if order['id'] == order_id:
+                self.orders.remove(order)
+                break
     
 
 
@@ -591,32 +674,54 @@ app.run()
     
     # Run the Market class
 market = Market(symbol='EURUSD')
-market.run()
+market.fx_price()
+market.stock_price()
 
     # Run the Backtester class
 backtest = Backtester()
-backtest.run()
+backtest.run_backtest()
+backtest.preprocess__data()
 
     # Run the Data processor class
 dataprocess = DataProcessor()
-dataprocess.run()
+dataprocess.preprocess_data()
 
     # Run the MACDBbands class
 macdbb = MACDBbands()
-macdbb.run()
+macdbb.load_data()
+macdbb.run_strategy()
+
 
     # Run the Technical Indicators class
 indicators = TechnicalIndicators()
-indicators.run()
+indicators.volumes()
+indicators.macd()
+indicators.bollinger_bands()
 
     # Run the Algo trading class
 algotrading = AlgoTrading()
-algotrading.run()
+algotrading.algorithmic_strategy()
+
 
     # Run the Supply and Demand class
 supplydemand = SupplyAndDemandTrader()
-supplydemand.run()
+supplydemand.get_market_demand()
+supplydemand.get_market_supply()
+supplydemand.generate_signals()
+supplydemand.generate_positions()
+supplydemand.calculate_portfolio()
+supplydemand.calculate_returns()
+supplydemand.generate_prompt()
+supplydemand.make_decision()
+supplydemand.get_balance()
+
 
     # Run the Risk manager class
 riskmanagement = RiskManager()
-riskmanagement.run()
+riskmanagement.update_equity()
+riskmanagement.calculate_risk()
+riskmanagement.can_open_position()
+riskmanagement.can_afford_position()
+riskmanagement.open_position()
+riskmanagement.close_position()
+riskmanagement.update_position()
