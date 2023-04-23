@@ -4,8 +4,6 @@
 
 '''
 
-
-
 # Finance modules
 
 import yfinance as yf
@@ -62,11 +60,11 @@ from ta.volatility import BollingerBands
 
 # Initialize openai API key
 
-openai.api_key = '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'
+openai.api_key = 'apikey'
 
 # Initialize Alpha Vantage API key
 
-alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
+alphavantage_api_key = 'apikey'
 
 
 
@@ -612,11 +610,18 @@ class PlaceCancelOrder:
 class IBapi(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
-        self.nextOrderId = 0
-        self.data = []
-
+class Bot:
+    ib = None
+    def __init__(self):
+        self.ib = IBapi()
+        self.ib.connect("192.168.56.1",7497,23467)
+        ib_thread = threading.Thread(target=self.run_loop, daemon=True)
+        ib_thread.start()
+        time.sleep(1)
     def execute_trade(self, side, quantity, price):
         # create a new contract object
+        print("execute")
+        print("execute trade")
         contract = Contract()
         contract.symbol = 'EURUSD'
         contract.secType = "forex"  # change to the security type you are trading
@@ -638,8 +643,8 @@ class IBapi(EWrapper, EClient):
         self.nextOrderId += 1
         
         # wait for the order to be filled
-        time.sleep(5)
-        
+        time.sleep(1)
+        print("sleep")
         # cancel the unfilled portion of the order
         remaining_quantity = order.totalQuantity - order.filledQuantity
         if remaining_quantity > 0:
@@ -661,27 +666,67 @@ class IBapi(EWrapper, EClient):
                 print("No signal to trade with mate.")
         else:
             print("Today is a weekend, there is no trading. So chill-out dude...")
+    def run_loop(self):
+        self.ib.run()
+
 
 
 # Run the IBapi class
-app = IBapi()
-app.connect('192.168.56.1', 7497, 23467)
+print("test2")
+bot = Bot()
+print("test3")    
+    # Run the Market class
+market = Market(symbol='EURUSD')
+market.fx_price()
+market.stock_price()
+
+    # Run the Backtester class
+backtest = Backtester()
+backtest.run_backtest()
+backtest.preprocess__data()
+
+    # Run the Data processor class
+dataprocess = DataProcessor()
+dataprocess.preprocess_data()
+
+    # Run the MACDBbands class
+macdbb = MACDBbands()
+macdbb.load_data()
+macdbb.run_strategy()
+
+
+    # Run the Technical Indicators class
+indicators = TechnicalIndicators()
+indicators.volumes()
+indicators.macd()
+indicators.bollinger_bands()
+
+    # Run the Algo trading class
+algotrading = AlgoTrading()
+algotrading.algorithmic_strategy()
+
+
+    # Run the Supply and Demand class
+supplydemand = SupplyAndDemandTrader()
+supplydemand.get_market_demand()
+supplydemand.get_market_supply()
+supplydemand.generate_signals()
+supplydemand.generate_positions()
+supplydemand.calculate_portfolio()
+supplydemand.calculate_returns()
+supplydemand.generate_prompt()
+supplydemand.make_decision()
+supplydemand.get_balance()
+
+
+    # Run the Risk manager class
+riskmanagement = RiskManager()
+riskmanagement.update_equity()
+riskmanagement.calculate_risk()
+riskmanagement.can_open_position()
+riskmanagement.can_afford_position()
+riskmanagement.open_position()
+riskmanagement.close_position()
+riskmanagement.update_position()
 app.run()
-
-
-
-# Use fx_price & stock_price
-
-symbol = 'EURUSD'
-price = fx_price(symbol)
-print(f'Current price of {symbol}: {price}')
-
-
-hist_data, current_price = stock_price()
-print('Current price is : {current_price}')
-
-
-# Use run_backtest
-backtest_returns = strategy.run_backtest(X_train, y_train, X_test)
-backtest_returns
 
