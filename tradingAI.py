@@ -4,6 +4,8 @@
 
 '''
 
+
+
 # Finance modules
 
 import yfinance as yf
@@ -70,20 +72,28 @@ alphavantage_api_key = 'apikey'
 
 class Market:
 
-    def __init__(self, symbol):
+    def __init__(self, symbol, currency = 'EURUSD', hist_window = 365):
         self.symbol = symbol
+        self.currency = currency
+        self.hist_window = hist_window
+        self.ib = IBapi()
+        
 
     def fx_price(self, real_time=True):
         if real_time:
             fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
             data, meta_data = fx.get_currency_exchange_rate(from_currency='EUR', to_currency='USD')
-            price = data['4. To_Currency Name'][0]
+
         else:
             fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
             data, meta_data = fx.get_currency_exchange_daily(from_symbol='EUR', to_symbol='USD', outputsize='compact')
             price = data['4. close'].iloc[-1]
-        return float(price)
-
+        try:
+            price = price[0].marketPrice()
+            return float(price)
+        except (TypeError, ValueError):
+            return None
+    
     def stock_price(self):
     # Get historical data for MSFT stock
         msft = yf.Ticker("MSFT")
@@ -487,7 +497,7 @@ class SupplyAndDemandTrader:
 
         
 class RiskManager:
-    def __init__(self, max_risk_per_trade=0.02, max_open_positions=5):
+    def __init__(self, max_risk_per_trade=0.05, max_open_positions=500):
         self.max_risk_per_trade = max_risk_per_trade
         self.max_open_positions = max_open_positions
         self.open_positions = []
@@ -507,16 +517,16 @@ class RiskManager:
     def can_afford_position(self, position_size):
         return self.current_equity * self.max_risk_per_trade >= self.calculate_risk(position_size)
     
-    def open_position(self, position):
+    def open_position(self, position, take_profit=None):
         if not self.can_open_position():
             raise Exception("Cannot open position: max open positions reached.")
         if not self.can_afford_position(position['size']):
             raise Exception("Cannot open position: insufficient funds or excessive risk.")
         
+        position['take_profit'] = take_profit
         self.open_positions.append(position)
         self.total_risk += self.calculate_risk(position['size'], position['stop_loss'])
         self.current_equity -= self.calculate_risk(position['size'], position['stop_loss'])
-
     
     def close_position(self, position):
         if position not in self.open_positions:
@@ -529,12 +539,17 @@ class RiskManager:
         position['profit'] = (current_price - position['entry_price']) * position['size'] * position['direction']
         if position['direction'] == 1:
             position['stop_loss'] = max(position['stop_loss'], position['entry_price'] - position['profit'])
+            if position['take_profit'] is not None and position['profit'] >= position['take_profit']:
+                self.close_position(position)
         else:
             position['stop_loss'] = min(position['stop_loss'], position['entry_price'] + position['profit'])
+            if position['take_profit'] is not None and position['profit'] <= -position['take_profit']:
+                self.close_position(position)
         if position['stop_loss'] >= current_price and position['direction'] == 1:
             self.close_position(position)
         elif position['stop_loss'] <= current_price and position['direction'] == -1:
             self.close_position(position)
+
 
 
 class PlaceCancelOrder:
