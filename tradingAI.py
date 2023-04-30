@@ -18,7 +18,7 @@ from ibapi.contract import Contract
 from ibapi.account_summary_tags import AccountSummaryTags
 from ibapi.order import *
 from ib_insync import *
-import ib_insync
+
 
 # Import classic modules
 
@@ -62,133 +62,49 @@ from ta.volatility import BollingerBands
 
 # Initialize openai API key
 
-openai.api_key = 'apikey'
+openai.api_key = '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'
 
 # Initialize Alpha Vantage API key
 
-alphavantage_api_key = 'apikey'
+alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
 
 
 
 class Market:
 
-    def __init__(self, symbol, currency = 'EURUSD', hist_window = 365):
+    def __init__(self, symbol, yahoo_ticker, currency='EURUSD', hist_window=365):
         self.symbol = symbol
+        self.yahoo_ticker = yahoo_ticker
         self.currency = currency
         self.hist_window = hist_window
-        self.ib = IBapi()
         
 
     def fx_price(self, real_time=True):
         if real_time:
             fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
             data, meta_data = fx.get_currency_exchange_rate(from_currency='EUR', to_currency='USD')
-
+            price = data['5. Exchange Rate'][0]
         else:
             fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
             data, meta_data = fx.get_currency_exchange_daily(from_symbol='EUR', to_symbol='USD', outputsize='compact')
-            price = data['4. close'].iloc[-1]
-        try:
-            price = price[0].marketPrice()
-            return float(price)
-        except (TypeError, ValueError):
-            return None
+            price = data['4. close'][-1]
+        return float(price)
+
     
     def stock_price(self):
-    # Get historical data for MSFT stock
-        msft = yf.Ticker("MSFT")
-        hist_data = msft.history(period="max")
-        hist_data = hist_data[['Close']]  # Select only the closing price column
+        msft = yf.Ticker('MSFT')
+        hist_data = msft.history(period='max')
+        hist_data = hist_data[['Close']]
 
-    # Get real-time data for MSFT stock
+        # Get real time data for MSFT stock
         msft_info = msft.info
-        current_price = msft_info["regularMarketPrice"]
-    
+        print(msft_info)
+        time.sleep(5)
+        current_price = msft_info["regularMarketOpen"]
+
         return hist_data, current_price
-
-class Backtester():
-
-    def __init__(self, strategy, data):
-        self.strategy = strategy
-        self.data = data
-
-    def run_backtest(self, X_train, y_train, X_test):
-        signals = self.strategy.generate_signals(self.data)
-        positions = self.strategy.generate_positions(signals)
-        portfolio = self.strategy.calculate_portfolio(positions, self.data)
-        returns = self.strategy.calculate_returns(portfolio)
         
-        # Define the deep learning model
-        model = Sequential()
-        model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
-        model.add(Dropout(0.2))
-        model.add(LSTM(units=50, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(LSTM(units=50))
-        model.add(Dropout(0.2))
-        model.add(Dense(units=1))
 
-        # Compile the model
-        model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
-
-        # Train the model
-        model.fit(X_train, y_train, epochs=100, batch_size=32)
-
-        # Use the model to generate trading signals
-        predicted_prices = model.predict(X_test)
-        
-        return returns
-
-
-    def preprocess__data(data):
-    # Drop any rows with NaN values
-        data.dropna(inplace=True)
-    
-    # Add technical indicators
-        data = ta.add_all_ta_features(data, "open", "high", "low", "close", "volume")
-    
-    # Define the features to use
-        feature_columns = [
-            "volume", "volume_adi", "volume_obv", "volume_vpt", 
-            "volatility_atr", "trend_macd_signal", "trend_macd_diff", "trend_ema_fast",
-            "momentum_rsi", "momentum_kama", "momentum_stoch_signal"
-        ]
-    
-    # Create X and y
-        X = data[feature_columns].values
-        y = np.where(data["close"].shift(-1) > data["close"], 1, -1)
-        y = y[:-1]
-    
-    # Scale the data
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-    
-        return X, y
-
-
-
-
-class DataProcessor:
-    def __init__(self, feature_columns):
-        self.feature_columns = feature_columns
-        self.scaler = StandardScaler()
-
-    def preprocess_data(self, data):
-        # Drop any rows with NaN values
-        data.dropna(inplace=True)
-
-        # Add technical indicators
-        data = ta.add_all_ta_features(data, "open", "high", "low", "close", "volume")
-
-        # Create X and y
-        X = data[self.feature_columns].values
-        y = np.where(data["close"].shift(-1) > data["close"], 1, -1)
-        y = y[:-1]
-
-        # Scale the data
-        X = self.scaler.fit_transform(X)
-
-        return X, y
 
 
 class MACDBbands:
@@ -261,7 +177,8 @@ class TechnicalIndicators:
     def __init__(self, symbol, timeframe):
         self.symbol = symbol
         self.timeframe = timeframe
-        self.data = yf.download(self.symbol, period=self.timeframe)
+        ticker = Ticker(self.symbol)
+        self.data = ticker.history(period=self.timeframe)
         
     def volumes(self):
         return self.data['Volume']
@@ -495,9 +412,98 @@ class SupplyAndDemandTrader:
                     self.account_balance = value
 
 
+
+class Backtester():
+
+    def __init__(self, strategy, data):
+        self.strategy = strategy
+        self.data = data
+
+    def run_backtest(self, X_train, y_train, X_test):
+        signals = self.strategy.generate_signals(self.data)
+        positions = self.strategy.generate_positions(signals)
+        portfolio = self.strategy.calculate_portfolio(positions, self.data)
+        returns = self.strategy.calculate_returns(portfolio)
+        
+        # Define the deep learning model
+        model = Sequential()
+        model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
+        model.add(Dropout(0.2))
+        model.add(LSTM(units=50, return_sequences=True))
+        model.add(Dropout(0.2))
+        model.add(LSTM(units=50))
+        model.add(Dropout(0.2))
+        model.add(Dense(units=1))
+
+        # Compile the model
+        model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
+
+        # Train the model
+        model.fit(X_train, y_train, epochs=100, batch_size=32)
+
+        # Use the model to generate trading signals
+        predicted_prices = model.predict(X_test)
+        
+        return returns
+
+
+    def preprocess__data(data):
+    # Drop any rows with NaN values
+        data.dropna(inplace=True)
+    
+    # Add technical indicators
+        data = ta.add_all_ta_features(data, "open", "high", "low", "close", "volume")
+    
+    # Define the features to use
+        feature_columns = [
+            "volume", "volume_adi", "volume_obv", "volume_vpt", 
+            "volatility_atr", "trend_macd_signal", "trend_macd_diff", "trend_ema_fast",
+            "momentum_rsi", "momentum_kama", "momentum_stoch_signal"
+        ]
+    
+    # Create X and y
+        X = data[feature_columns].values
+        y = np.where(data["close"].shift(-1) > data["close"], 1, -1)
+        y = y[:-1]
+    
+    # Scale the data
+        scaler = StandardScaler()
+        X = scaler.fit_transform(X)
+    
+        return X, y
+
+
+
+
+class DataProcessor:
+    def __init__(self, feature_columns):
+        self.feature_columns = feature_columns
+        self.scaler = StandardScaler()
+
+    def preprocess_data(self, data):
+        # Drop any rows with NaN values
+        data.dropna(inplace=True)
+
+        # Add technical indicators
+        data = ta.add_all_ta_features(data, "open", "high", "low", "close", "volume")
+
+        # Create X and y
+        X = data[self.feature_columns].values
+        y = np.where(data["close"].shift(-1) > data["close"], 1, -1)
+        y = y[:-1]
+
+        # Scale the data
+        X = self.scaler.fit_transform(X)
+
+        return X, y
+
+
+
+
+
         
 class RiskManager:
-    def __init__(self, max_risk_per_trade=0.05, max_open_positions=500):
+    def __init__(self, max_risk_per_trade=0.5, max_open_positions=500):
         self.max_risk_per_trade = max_risk_per_trade
         self.max_open_positions = max_open_positions
         self.open_positions = []
@@ -625,14 +631,17 @@ class PlaceCancelOrder:
 class IBapi(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
+
 class Bot:
     ib = None
+    
     def __init__(self):
         self.ib = IBapi()
         self.ib.connect("192.168.56.1",7497,23467)
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
+    
     def execute_trade(self, side, quantity, price):
         # create a new contract object
         print("execute")
@@ -691,7 +700,7 @@ print("test2")
 bot = Bot()
 print("test3")    
     # Run the Market class
-market = Market(symbol='EURUSD')
+market = Market(symbol='EURUSD', yahoo_ticker='MSFT')
 market.fx_price()
 market.stock_price()
 
@@ -744,4 +753,3 @@ riskmanagement.open_position()
 riskmanagement.close_position()
 riskmanagement.update_position()
 app.run()
-
