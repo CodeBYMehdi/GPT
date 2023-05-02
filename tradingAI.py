@@ -95,12 +95,13 @@ class Market:
         msft = yf.Ticker('MSFT')
         hist_data = msft.history(period='max')
         hist_data = hist_data[['Close']]
+        print(hist_data)
 
         # Get real time data for MSFT stock
         msft_info = msft.info
-        print(msft_info)
         time.sleep(5)
         current_price = msft_info["regularMarketOpen"]
+        print(current_price)
 
         return hist_data, current_price
         
@@ -413,64 +414,44 @@ class SupplyAndDemandTrader:
 
 
 
-class Backtester():
 
-    def __init__(self, strategy, data):
+
+class Backtester:
+    def __init__(self, strategy, data, stock, fx, trend, stop_loss, take_profit):
         self.strategy = strategy
         self.data = data
+        self.stock = stock
+        self.fx = fx
+        self.trend = trend
+        self.stop_loss = stop_loss
+        self.take_profit = take_profit
 
-    def run_backtest(self, X_train, y_train, X_test):
-        signals = self.strategy.generate_signals(self.data)
+    def load_data(self):
+        if isinstance(self.data, str):
+            if self.data == "msft":
+                msft = yf.Ticker("MSFT")
+                self.data = msft.history(period="max")
+            elif self.data == "fx":
+                fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
+                data, meta_data = fx.get_currency_exchange_daily(from_symbol='EUR', to_symbol='USD', outputsize='compact')
+                self.data = data
+
+    def run_backtest(self):
+        self.load_data()
+        sdt = SupplyDemandTrader(self.stock, self.fx)
+        supply_data = sdt.get_supply_data()
+        demand_data = sdt.get_demand_data()
+        signals = self.strategy.generate_signals(self.data, supply_data, demand_data, self.trend, self.stop_loss, self.take_profit)
         positions = self.strategy.generate_positions(signals)
         portfolio = self.strategy.calculate_portfolio(positions, self.data)
         returns = self.strategy.calculate_returns(portfolio)
-        
-        # Define the deep learning model
-        model = Sequential()
-        model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
-        model.add(Dropout(0.2))
-        model.add(LSTM(units=50, return_sequences=True))
-        model.add(Dropout(0.2))
-        model.add(LSTM(units=50))
-        model.add(Dropout(0.2))
-        model.add(Dense(units=1))
 
-        # Compile the model
-        model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
-
-        # Train the model
-        model.fit(X_train, y_train, epochs=100, batch_size=32)
-
-        # Use the model to generate trading signals
-        predicted_prices = model.predict(X_test)
-        
         return returns
 
 
-    def preprocess__data(data):
-    # Drop any rows with NaN values
-        data.dropna(inplace=True)
-    
-    # Add technical indicators
-        data = ta.add_all_ta_features(data, "open", "high", "low", "close", "volume")
-    
-    # Define the features to use
-        feature_columns = [
-            "volume", "volume_adi", "volume_obv", "volume_vpt", 
-            "volatility_atr", "trend_macd_signal", "trend_macd_diff", "trend_ema_fast",
-            "momentum_rsi", "momentum_kama", "momentum_stoch_signal"
-        ]
-    
-    # Create X and y
-        X = data[feature_columns].values
-        y = np.where(data["close"].shift(-1) > data["close"], 1, -1)
-        y = y[:-1]
-    
-    # Scale the data
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-    
-        return X, y
+
+
+
 
 
 
@@ -696,16 +677,22 @@ class Bot:
 
 
 # Run the IBapi class
-print("test2")
+print("test 1")
 bot = Bot()
-print("test3")    
-    # Run the Market class
+print("test 2")    
+fx_price = "fx"
+stock_price = "stock"
 market = Market(symbol='EURUSD', yahoo_ticker='MSFT')
+sdt = SupplyAndDemandTrader(market, fx_price, stock_price)
+supply_data = sdt.get_market_supply()
+demand_data = sdt.get_market_demand()
+    # Run the Market class
 market.fx_price()
 market.stock_price()
 
     # Run the Backtester class
-backtest = Backtester()
+backtest = Backtester(sdt, "fx", "stock", supply_data, demand_data, stop_loss, take_profit)
+
 backtest.run_backtest()
 backtest.preprocess__data()
 
