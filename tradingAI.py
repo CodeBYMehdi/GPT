@@ -16,8 +16,10 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.account_summary_tags import AccountSummaryTags
+from ibapi.common import *
+from ibapi.ticktype import *
 from ibapi.order import *
-from ib_insync import *
+
 
 
 # Import classic modules
@@ -108,40 +110,79 @@ class Market:
         
 
 
+class IBapi(EWrapper, EClient):
+    def __init__(self, wrapper):
+        EWrapper.__init__(self)
+        EClient.__init__(self, wrapper)
+
+
 
 class Balance:
-
+    def __init__(self):
+        self.app = IBApp()
+        self.app.connect("192.168.56.1", 7497, 23467)
+        self.account_balance = None
 
     def calculate_units(self, portfolio_value, price):
-        # calculate the maximum number of units that can be bought with the portfolio value and the price
         balance = self.get_balance()
         max_units = balance / price
         return int(min(max_units, portfolio_value / price))
 
-
-
     def get_balance(self):
-        # implement a function to get the account balance from the IB API
-        # here is an example implementation that assumes that the account currency is EUR
-        class MyEWrapper(EWrapper):
-            def __init__(self):
-                self.account_balance = None
+        self.app.reqAccountSummary(1, "All", "$LEDGER:EUR")
+        self.app.run()
 
-            def accountSummary(self, reqId, account, tag, value, currency):
-                if tag == "TotalCashValue":
-                    self.account_balance = value
+        return self.account_balance
+
+    def accountSummary(self, reqId, account, tag, value, currency):
+        if tag == "TotalCashValue":
+            self.account_balance = value
+            self.app.disconnect()
                     
-                    
 
 
 
 
 
+
+
+class RiskManager:
+    
+    def __init__(self, balance, stop_loss_pct, take_profit_pct):
+        self.balance = balance
+        self.stop_loss_pct = stop_loss_pct
+        self.take_profit_pct = take_profit_pct
+        
+    def calculate_order_size(self, current_price):
+        max_loss_pct = 0.5  # maximum percentage of account balance that can be lost on a single trade
+        risk_amount = self.balance * max_loss_pct
+        stop_loss_price = current_price * (1 - self.stop_loss_pct)
+        take_profit_price = current_price * (1 + self.take_profit_pct)
+        
+        # calculate number of shares to buy based on risk amount and stop loss price
+        order_size = risk_amount / (current_price - stop_loss_price)
+        
+        # calculate potential profit based on take profit price
+        potential_profit = order_size * (take_profit_price - current_price)
+        
+        # if potential profit is less than risk amount, reduce order size to minimize risk
+        if potential_profit < risk_amount:
+            order_size = risk_amount / (take_profit_price - current_price)
+            
+        return int(order_size)
+        
+    def calculate_risk(self, price, stop_loss):
+        risk = (self.risk_percentage / 100) * self.balance
+        max_loss = price - stop_loss
+        position_size = risk / max_loss
+
+        return position_size
 
 
 
 
 class NNTS:
+    
     def __init__(self, lookback, units, dropout, epochs, batch_size):
         self.lookback = lookback
         self.units = units
@@ -149,6 +190,7 @@ class NNTS:
         self.epochs = epochs
         self.batch_size = batch_size
         self.scaler = MinMaxScaler()
+        self.risk_manager = RiskManager()
 
     def _prepare_data(self, data):
         self.scaler.fit(data)
@@ -175,13 +217,20 @@ class NNTS:
         
         return model
 
-    def generate_signals(self, data, strategy):
+    def generate_signals(self, data, strategy, max_trades=2000):
+        avg_trades_per_day = int(len(data) / self.lookback)
+        if avg_trades_per_day < 500:
+            self.units *= 2
+        elif avg_trades_per_day > 2000:
+            self.lookback = int(len(data) / 2000)
+        batch_size = max(int(avg_trades_per_day / self.epochs), 1)
         X, y = self._prepare_data(data)
         model = self._build_model(X)
-        model.fit(X, y, epochs=self.epochs, batch_size=self.batch_size, verbose=0)
+        model.fit(X, y, epochs=self.epochs, batch_size=batch_size, verbose=0)
         y_pred = model.predict(X)
         signals = np.zeros(len(data))
         signals[self.lookback:] = np.where(y_pred > y, 1, -1)
+        signals = self.risk_manager.filter_signals(signals, data)
         
         if strategy == 'buy':
             signals[signals != 1] = 0
@@ -189,12 +238,78 @@ class NNTS:
             signals[signals != -1] = 0
         else:
             signals = np.zeros(len(data))
-        
+            
+        if np.count_nonzero(signals) > max_trades:
+            excess_trades = np.count_nonzero(signals) - max_trades
+            if excess_trades < np.count_nonzero(signals == 1):
+                signals[signals == 1][:excess_trades] = 0
+            else:
+                signals[signals == -1][:excess_trades] = 0
+                
         return signals
 
 
 
 
+
+class TradingProcess:
+    def __init__(self, balance, risk_percentage, transaction_fee):
+        self.balance = balance
+        self.risk_percentage = risk_percentage
+        self.transaction_fee = transaction_fee
+        self.scaler = StandardScaler()
+        self.model = MLPClassifier(hidden_layer_sizes=(64, 32), activation='relu', max_iter=500, random_state=42)
+
+        self.positions = []
+        self.profits = []
+
+    def update_equity(self):
+        equity = self.balance
+        for position in self.positions:
+            equity += position['profit']
+        return equity
+
+
+    def can_open_position(self, price, stop_loss):
+        position_size = self.calculate_risk(price, stop_loss)
+        return self.balance >= position_size * price
+
+    def can_afford_position(self, price, stop_loss, size):
+        position_cost = size * price
+        return self.balance >= position_cost
+
+    def open_position(self, price, stop_loss, size):
+        self.balance -= size * price
+        self.positions.append({
+            'price': price,
+            'stop_loss': stop_loss,
+            'size': size,
+            'profit': 0.0
+        })
+
+    def close_position(self, index, price):
+        position = self.positions.pop(index)
+        profit = position['size'] * (price - position['price']) - 2 * self.transaction_fee
+        self.balance += profit
+        self.profits.append(profit)
+        return profit
+
+    def update_position(self, index, price):
+        position = self.positions[index]
+        if price <= position['stop_loss']:
+            return self.close_position(index, position['stop_loss'])
+        else:
+            position['profit'] = position['size'] * (price - position['price']) - 2 * self.transaction_fee
+            return position['profit']
+
+    def fit(self, X, y):
+        self.scaler.fit(X)
+        X_scaled = self.scaler.transform(X)
+        self.model.fit(X_scaled, y)
+
+    def predict(self, X):
+        X_scaled = self.scaler.transform(X)
+        return self.model.predict(X_scaled)
 
 
 
@@ -228,59 +343,7 @@ class DataProcessor:
 
 
         
-class RiskManager:
-    def __init__(self, max_risk_per_trade=0.5, max_open_positions=500):
-        self.max_risk_per_trade = max_risk_per_trade
-        self.max_open_positions = max_open_positions
-        self.open_positions = []
-        self.current_equity = 0
-        self.total_risk = 0
-    
-    def update_equity(self, equity):
-        self.current_equity = equity
-        self.equity.append(self.current_equity)
-    
-    def calculate_risk(self, position_size, stop_loss):
-        return position_size * stop_loss
-    
-    def can_open_position(self):
-        return len(self.open_positions) < self.max_open_positions
-    
-    def can_afford_position(self, position_size):
-        return self.current_equity * self.max_risk_per_trade >= self.calculate_risk(position_size)
-    
-    def open_position(self, position, take_profit=None):
-        if not self.can_open_position():
-            raise Exception("Cannot open position: max open positions reached.")
-        if not self.can_afford_position(position['size']):
-            raise Exception("Cannot open position: insufficient funds or excessive risk.")
-        
-        position['take_profit'] = take_profit
-        self.open_positions.append(position)
-        self.total_risk += self.calculate_risk(position['size'], position['stop_loss'])
-        self.current_equity -= self.calculate_risk(position['size'], position['stop_loss'])
-    
-    def close_position(self, position):
-        if position not in self.open_positions:
-            raise Exception("Cannot close position: not found in open positions.")
-        self.open_positions.remove(position)
-        self.total_risk -= self.calculate_risk(position['size'], position['stop_loss'])
-        self.current_equity += position['profit']
-    
-    def update_position(self, position, current_price):
-        position['profit'] = (current_price - position['entry_price']) * position['size'] * position['direction']
-        if position['direction'] == 1:
-            position['stop_loss'] = max(position['stop_loss'], position['entry_price'] - position['profit'])
-            if position['take_profit'] is not None and position['profit'] >= position['take_profit']:
-                self.close_position(position)
-        else:
-            position['stop_loss'] = min(position['stop_loss'], position['entry_price'] + position['profit'])
-            if position['take_profit'] is not None and position['profit'] <= -position['take_profit']:
-                self.close_position(position)
-        if position['stop_loss'] >= current_price and position['direction'] == 1:
-            self.close_position(position)
-        elif position['stop_loss'] <= current_price and position['direction'] == -1:
-            self.close_position(position)
+
 
 
 
@@ -323,20 +386,18 @@ class PlaceCancelOrder:
 
 
 
-class IBapi(EWrapper, EClient):
-    def __init__(self):
-        EClient.__init__(self, self)
+
 
 class Bot:
     ib = None
     
     def __init__(self):
-        self.ib = IBapi()
-        self.ib.connect("192.168.56.1",7497,23467)
+        self.ib = IBapi(self)
+        self.ib.connect("192.168.56.1", 7497, 23467)
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
-    
+
     def execute_trade(self, side, quantity, price):
         # create a new contract object
         print("execute")
@@ -346,7 +407,7 @@ class Bot:
         contract.secType = "forex"  # change to the security type you are trading
         contract.currency = "EUR"  # change to the currency of the security
         contract.exchange = "MKT"  # change to the exchange you are trading on
-        
+    
         # create a new order object
         order = Order() 
         if side == 'BUY':
@@ -356,22 +417,23 @@ class Bot:
         order.orderType = 'MKT'  # "LMT" for limit order, "MKT" for market order
         order.totalQuantity = quantity
         order.lmtPrice = price  # specify the price for limit orders
-        
+    
         # submit the order to the TWS
-        self.placeOrder(self.nextOrderId, contract, order)
-        self.nextOrderId += 1
-        
+        self.ib.placeOrder(self.ib.nextOrderId, contract, order)
+        self.ib.nextOrderId += 1
+    
         # wait for the order to be filled
         time.sleep(1)
         print("sleep")
+    
         # cancel the unfilled portion of the order
         remaining_quantity = order.totalQuantity - order.filledQuantity
         if remaining_quantity > 0:
             cancel_order = Order()
             cancel_order.action = "CANCEL"
             cancel_order.totalQuantity = remaining_quantity
-            self.placeOrder(self.nextOrderId, contract, cancel_order)
-            self.nextOrderId += 1
+            self.ib.placeOrder(self.ib.nextOrderId, contract, cancel_order)
+            self.ib.nextOrderId += 1
 
         today = datetime.datetime.today()
         if today.weekday() < 5:  # Check if today is a weekday (0 = Monday, ..., 4 = Friday)
@@ -385,8 +447,11 @@ class Bot:
                 print("No signal to trade with mate.")
         else:
             print("Today is a weekend, there is no trading. So chill-out dude...")
+        
     def run_loop(self):
         self.ib.run()
+
+
 
 
 
@@ -408,38 +473,50 @@ balance.calculate_units()
 balance.get_balance()
 balance.accountSummary()
 
+# Call the RiskManager class
+
+riskmg = RiskManager()
+riskmg.update_equity()
+riskmg.calculate_risk()
+riskmg.can_open_position()
+riskmg.can_afford_position()
+riskmg.open_position()
+riskmg.close_position()
+riskmg.update_position()
+
 # Call the NNTS class
 
 nnts = NNTS()
-nnts._prepare_data
-nnts._build_model
-nnts.generate_signals
+nnts._prepare_data()
+nnts._build_model()
+nnts.generate_signals()
+
+# Call the TradingProcess class
+
+tp = TradingProcess()
+tp.update_equity()
+tp.can_open_position()
+tp.can_afford_position()
+tp.open_position()
+tp.close_position()
+tp.update_position()
+tp.fit()
+tp.predict()
 
 # Call the DataProcessor class
 
 datapp = DataProcessor()
-datapp.preprocess_data
+datapp.preprocess_data()
 
-# Call the RiskManager class
-
-riskmg = RiskManager()
-riskmg.update_equity
-riskmg.calculate_risk
-riskmg.can_open_position
-riskmg.can_afford_position
-riskmg.open_position
-riskmg.close_position
-riskmg.update_position
 
 # Call PlaceCancelOrder class
 
 pcorder = PlaceCancelOrder()
-pcorder.place_order
-pcorder.cancel_order
+pcorder.place_order()
+pcorder.cancel_order()
 
-# Call the Bot class
+# Call Bot function
 
 bot = Bot()
-bot.execute_trade
-bot.run_loop
-app.run
+bot.execute_trade()
+bot.run_loop()
