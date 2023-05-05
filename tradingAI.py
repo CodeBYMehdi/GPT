@@ -111,9 +111,10 @@ class Market:
 
 
 class IBapi(EWrapper, EClient):
-    def __init__(self, wrapper):
+    def __init__(self, bot):
         EWrapper.__init__(self)
-        EClient.__init__(self, wrapper)
+        EClient.__init__(self, wrapper=self)
+        self.bot = bot
 
 
 
@@ -393,10 +394,13 @@ class Bot:
     
     def __init__(self):
         self.ib = IBapi(self)
-        self.ib.connect("192.168.56.1", 7497, 23467)
+        self.ib.connect("127.0.0.1", 7495, 1)
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
+
+    def connectAck(self):
+        print("Connected to TWS")
 
     def execute_trade(self, side, quantity, price):
         # create a new contract object
