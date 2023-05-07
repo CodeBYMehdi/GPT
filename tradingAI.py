@@ -1,7 +1,5 @@
 '''
-
                                                     Made by @mehdibj
-
 '''
 
 
@@ -120,7 +118,7 @@ class IBapi(EWrapper, EClient):
 
 class Balance:
     def __init__(self):
-        self.app = IBApp()
+        self.app = IBapi(bot)
         self.app.connect("192.168.56.1", 7497, 23467)
         self.account_balance = None
 
@@ -473,7 +471,9 @@ market.stock_price()
 # Call the Balance class
 
 balance = Balance()
-balance.calculate_units()
+portfolio_value = 150.0
+price = balance.calculate_units(market.fx_price())
+balance.calculate_units(portfolio_value, price)
 balance.get_balance()
 balance.accountSummary()
 
