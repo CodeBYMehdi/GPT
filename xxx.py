@@ -119,11 +119,15 @@ class IBapi(EWrapper, EClient):
 class Balance:
     def __init__(self):
         self.app = IBapi(bot)
-        self.app.connect("192.168.56.1", 7497, 23467)
+        self.app.connect("127.0.0.1", 7497, 1)
         self.account_balance = None
 
     def calculate_units(self, portfolio_value, price):
         balance = self.get_balance()
+        if balance is None:
+            # Gérer le cas où la balance n'est pas disponible
+            return None  # Ou une autre valeur appropriée
+
         max_units = balance / price
         return int(min(max_units, portfolio_value / price))
 
@@ -392,7 +396,7 @@ class Bot:
     
     def __init__(self):
         self.ib = IBapi(self)
-        self.ib.connect("127.0.0.1", 7495, 1)
+        self.ib.connect("127.0.0.1", 7497, 1)
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
@@ -471,15 +475,15 @@ market.stock_price()
 # Call the Balance class
 
 balance = Balance()
-portfolio_value = 150.0
-price = balance.calculate_units(market.fx_price())
-balance.calculate_units(portfolio_value, price)
+portfolio_value = 150
+fx_price = market.fx_price()  # Récupérer la valeur du prix depuis le marché
+units = balance.calculate_units(portfolio_value, fx_price)
 balance.get_balance()
-balance.accountSummary()
+balance.accountSummary(portfolio_value, fx_price, currency = "EUR", tag = "TotalCashValue", value = balance)
 
 # Call the RiskManager class
 
-riskmg = RiskManager()
+riskmg = RiskManager(balance)
 riskmg.update_equity()
 riskmg.calculate_risk()
 riskmg.can_open_position()
