@@ -1,6 +1,3 @@
-'''
-                                                    Made by @mehdibj
-'''
 
 
 
@@ -117,16 +114,14 @@ class IBapi(EWrapper, EClient):
 
 
 class Balance:
-    def __init__(self):
-        self.app = IBapi(bot)
-        self.app.connect("127.0.0.1", 7497, 1)
+    def __init__(self, app):
+        self.app = app
         self.account_balance = None
 
     def calculate_units(self, portfolio_value, price):
         balance = self.get_balance()
         if balance is None:
-            # Gérer le cas où la balance n'est pas disponible
-            return None  # Ou une autre valeur appropriée
+            return None
 
         max_units = balance / price
         return int(min(max_units, portfolio_value / price))
@@ -141,45 +136,47 @@ class Balance:
         if tag == "TotalCashValue":
             self.account_balance = value
             self.app.disconnect()
-                    
 
-
+    def get_balance_value(self):
+        return self.account_balance
 
 
 
 
 
 class RiskManager:
-    
     def __init__(self, balance, stop_loss_pct, take_profit_pct):
         self.balance = balance
         self.stop_loss_pct = stop_loss_pct
         self.take_profit_pct = take_profit_pct
-        
+
     def calculate_order_size(self, current_price):
         max_loss_pct = 0.5  # maximum percentage of account balance that can be lost on a single trade
         risk_amount = self.balance * max_loss_pct
         stop_loss_price = current_price * (1 - self.stop_loss_pct)
         take_profit_price = current_price * (1 + self.take_profit_pct)
-        
+
         # calculate number of shares to buy based on risk amount and stop loss price
         order_size = risk_amount / (current_price - stop_loss_price)
-        
+
         # calculate potential profit based on take profit price
         potential_profit = order_size * (take_profit_price - current_price)
-        
+
         # if potential profit is less than risk amount, reduce order size to minimize risk
         if potential_profit < risk_amount:
             order_size = risk_amount / (take_profit_price - current_price)
-            
-        return int(order_size)
-        
-    def calculate_risk(self, price, stop_loss):
-        risk = (self.risk_percentage / 100) * self.balance
-        max_loss = price - stop_loss
-        position_size = risk / max_loss
 
-        return position_size
+        return int(order_size)
+
+    def calculate_risk(self, price, stop_loss):
+        balance_value = self.balance.get_balance_value()
+        risk = (balance_value * self.stop_loss_pct) / (price - stop_loss)
+        return risk
+
+    def update_equity(self):
+        # Implementation of the update_equity method
+        # Update the equity based on positions, trades, etc.
+        pass
 
 
 
@@ -464,7 +461,11 @@ class Bot:
 # Run the loop
 print("test 1")
 bot = Bot()
-print("test 2")    
+print("test 2")
+
+app = IBapi(bot)
+app.connect("127.0.0.1", 7497, 1)
+
 
 # Call Market class
 
@@ -474,7 +475,7 @@ market.stock_price()
 
 # Call the Balance class
 
-balance = Balance()
+balance = Balance(app)
 portfolio_value = 150
 fx_price = market.fx_price()  # Récupérer la valeur du prix depuis le marché
 units = balance.calculate_units(portfolio_value, fx_price)
@@ -483,8 +484,13 @@ balance.accountSummary(portfolio_value, fx_price, currency = "EUR", tag = "Total
 
 # Call the RiskManager class
 
-riskmg = RiskManager(balance)
+stop_loss_pct = 0.02  # Example value, replace with your desired stop loss percentage
+take_profit_pct = 0.04  # Example value, replace with your desired take profit percentage
+riskmg = RiskManager(balance, stop_loss_pct, take_profit_pct)
 riskmg.update_equity()
+price = 100.0  # Replace with the actual price value
+stop_loss = 95.0  # Replace with the actual stop loss value
+riskmg.calculate_risk(price, stop_loss)
 riskmg.calculate_risk()
 riskmg.can_open_position()
 riskmg.can_afford_position()
