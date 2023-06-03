@@ -135,7 +135,6 @@ class Balance:
     def accountSummary(self, reqId, account, tag, value, currency):
         if tag == "TotalCashValue":
             self.account_balance = value
-            self.app.disconnect()
 
     def get_balance_value(self):
         return self.account_balance
@@ -169,9 +168,11 @@ class RiskManager:
         return int(order_size)
 
     def calculate_risk(self, price, stop_loss):
-        balance_value = self.balance.get_balance_value()
-        risk = (balance_value * self.stop_loss_pct) / (price - stop_loss)
+        balance_value = float(self.balance.get_balance_value()) # Convert balance value to float
+        stop_loss_pct = float(self.stop_loss_pct) # Convert stop loss to float
+        risk = (balance_value * stop_loss_pct) / (price - stop_loss)
         return risk
+
 
     def update_equity(self):
         # Implementation of the update_equity method
@@ -476,7 +477,7 @@ market.stock_price()
 # Call the Balance class
 
 balance = Balance(app)
-portfolio_value = 150
+
 fx_price = market.fx_price()  # Récupérer la valeur du prix depuis le marché
 units = balance.calculate_units(portfolio_value, fx_price)
 balance.get_balance()
