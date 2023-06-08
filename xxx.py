@@ -1,3 +1,6 @@
+'''
+                                                    Made by @mehdibj
+'''
 
 
 
@@ -111,73 +114,84 @@ class IBapi(EWrapper, EClient):
         EClient.__init__(self, wrapper=self)
         self.bot = bot
 
-
-
-class Balance:
-    def __init__(self, app):
-        self.app = app
+class BalanceApp(EWrapper, EClient):
+    def __init__(self, ip_address, port_id, client_id):
+        EClient.__init__(self, self)
+        self.ip_address = ip_address
+        self.port_id = port_id
+        self.client_id = client_id
         self.account_balance = None
 
-    def calculate_units(self, portfolio_value, price):
-        balance = self.get_balance()
-        if balance is None:
-            return None
+    def start(self):
+        self.connect(self.ip_address, self.port_id, self.client_id)
+        self.run()
 
-        max_units = balance / price
-        return int(min(max_units, portfolio_value / price))
+    def nextValidId(self, orderId: int):
+        super().nextValidId(orderId)
+        self.reqAccountSummary(9001, "All", "$LEDGER")
 
-    def get_balance(self):
-        self.app.reqAccountSummary(1, "All", "$LEDGER:EUR")
-        self.app.run()
+    def accountSummary(self, reqId: int, account: str, tag: str, value: str, currency: str):
+        super().accountSummary(reqId, account, tag, value, currency)
+        if tag == 'TotalCashValue':
+            self.account_balance = float(value)
 
-        return self.account_balance
 
-    def accountSummary(self, reqId, account, tag, value, currency):
-        if tag == "TotalCashValue":
-            self.account_balance = value
+    def error(self, reqId, errorCode, errorString):
+        print(f"Error: {reqId} - {errorCode} - {errorString}")
+        if errorCode == 2104:  # Market data farm connection is OK
+            return  # Ignore this error
 
-    def get_balance_value(self):
-        return self.account_balance
+
+if __name__ == "__main__":
+    # TWS connection parameters
+    ip_address = "127.0.0.1"  # Replace with your TWS IP address
+    port_id = 7495 # Replace with your TWS port ID
+    client_id = 1  # Replace with your client ID
+
+    app = BalanceApp(ip_address, port_id, client_id)
+    app.start()
+
+    # Retrieve the account balance
+    if app.account_balance is not None:
+        print(f"Account Balance: {app.account_balance}")
+    else:
+        print("Unable to retrieve account balance.")
 
 
 
 
 
 class RiskManager:
+    
     def __init__(self, balance, stop_loss_pct, take_profit_pct):
         self.balance = balance
         self.stop_loss_pct = stop_loss_pct
         self.take_profit_pct = take_profit_pct
-
+        
     def calculate_order_size(self, current_price):
         max_loss_pct = 0.5  # maximum percentage of account balance that can be lost on a single trade
         risk_amount = self.balance * max_loss_pct
         stop_loss_price = current_price * (1 - self.stop_loss_pct)
         take_profit_price = current_price * (1 + self.take_profit_pct)
-
+        
         # calculate number of shares to buy based on risk amount and stop loss price
         order_size = risk_amount / (current_price - stop_loss_price)
-
+        
         # calculate potential profit based on take profit price
         potential_profit = order_size * (take_profit_price - current_price)
-
+        
         # if potential profit is less than risk amount, reduce order size to minimize risk
         if potential_profit < risk_amount:
             order_size = risk_amount / (take_profit_price - current_price)
-
+            
         return int(order_size)
-
+        
     def calculate_risk(self, price, stop_loss):
-        balance_value = float(self.balance.get_balance_value()) # Convert balance value to float
-        stop_loss_pct = float(self.stop_loss_pct) # Convert stop loss to float
-        risk = (balance_value * stop_loss_pct) / (price - stop_loss)
-        return risk
+        risk = (self.risk_percentage / 100) * self.balance
+        max_loss = price - stop_loss
+        position_size = risk / max_loss
 
-
-    def update_equity(self):
-        # Implementation of the update_equity method
-        # Update the equity based on positions, trades, etc.
-        pass
+        return position_size
 
 
 
@@ -394,7 +408,7 @@ class Bot:
     
     def __init__(self):
         self.ib = IBapi(self)
-        self.ib.connect("127.0.0.1", 7497, 1)
+        self.ib.connect("127.0.0.1", 7495, 1)
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
@@ -462,11 +476,7 @@ class Bot:
 # Run the loop
 print("test 1")
 bot = Bot()
-print("test 2")
-
-app = IBapi(bot)
-app.connect("127.0.0.1", 7497, 1)
-
+print("test 2")    
 
 # Call Market class
 
@@ -476,22 +486,16 @@ market.stock_price()
 
 # Call the Balance class
 
-balance = Balance(app)
-
-fx_price = market.fx_price()  # Récupérer la valeur du prix depuis le marché
-units = balance.calculate_units(portfolio_value, fx_price)
-balance.get_balance()
-balance.accountSummary(portfolio_value, fx_price, currency = "EUR", tag = "TotalCashValue", value = balance)
+balance = BalanceApp()
+balance.start()
+balance.nextValidId()
+balance.accountSummary()
+balance.error()
 
 # Call the RiskManager class
 
-stop_loss_pct = 0.02  # Example value, replace with your desired stop loss percentage
-take_profit_pct = 0.04  # Example value, replace with your desired take profit percentage
-riskmg = RiskManager(balance, stop_loss_pct, take_profit_pct)
+riskmg = RiskManager()
 riskmg.update_equity()
-price = 100.0  # Replace with the actual price value
-stop_loss = 95.0  # Replace with the actual stop loss value
-riskmg.calculate_risk(price, stop_loss)
 riskmg.calculate_risk()
 riskmg.can_open_position()
 riskmg.can_afford_position()
