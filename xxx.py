@@ -1,9 +1,3 @@
-'''
-                                                    Made by @mehdibj
-'''
-
-
-
 # Finance modules
 
 import yfinance as yf
@@ -486,7 +480,7 @@ market.stock_price()
 
 # Call the Balance class
 
-balance = BalanceApp()
+balance = BalanceApp(ip_address,port_id,client_id)
 balance.start()
 balance.nextValidId()
 balance.accountSummary()
