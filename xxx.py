@@ -1,6 +1,4 @@
-# Finance modules
 
-import yfinance as yf
 
 # Import the IB modules
 
@@ -11,7 +9,6 @@ from ibapi.account_summary_tags import AccountSummaryTags
 from ibapi.common import *
 from ibapi.ticktype import *
 from ibapi.order import *
-
 
 
 # Import classic modules
@@ -49,15 +46,8 @@ from keras.optimizers import Adam
 
 from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
+from alpha_vantage.techindicators import TechIndicators
 
-# Import the technical indicators module
-
-from ta.trend import MACD
-from ta.volatility import BollingerBands
-
-# Initialize openai API key
-
-openai.api_key = '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'
 
 # Initialize Alpha Vantage API key
 
@@ -66,13 +56,11 @@ alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
 
 
 class Market:
-
     def __init__(self, symbol, yahoo_ticker, currency='EURUSD', hist_window=365):
         self.symbol = symbol
         self.yahoo_ticker = yahoo_ticker
         self.currency = currency
         self.hist_window = hist_window
-        
 
     def fx_price(self, real_time=True):
         if real_time:
@@ -83,22 +71,34 @@ class Market:
             fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
             data, meta_data = fx.get_currency_exchange_daily(from_symbol='EUR', to_symbol='USD', outputsize='compact')
             price = data['4. close'][-1]
-        return float(price)
+        price = float(price)
+        print(f"EURUSD Current Spot: {price}")
 
-    
+        return price
+
     def stock_price(self):
-        msft = yf.Ticker('MSFT')
-        hist_data = msft.history(period='max')
-        hist_data = hist_data[['Close']]
-        print(hist_data)
 
-        # Get real time data for MSFT stock
-        msft_info = msft.info
-        time.sleep(5)
-        current_price = msft_info["regularMarketOpen"]
-        print(current_price)
+        api_key = 'QUJ00N0C3VLU7NKC'
+        symbol = 'MSFT'
+
+        ts = TimeSeries(key=api_key, output_format='pandas')
+        historical_data, meta_data = ts.get_daily(symbol=symbol, outputsize='full')
+        hist_data = historical_data[['4. close']]
+        hist_data = hist_data.rename(columns={'4. close': 'Close'})
+        hist_data.index = pd.to_datetime(hist_data.index)
+
+        print(f"MSFT Historical Price: {hist_data['Close'].values[-1]}")
+
+        ts = TimeSeries(key=api_key, output_format='pandas')
+        real_time_data, meta_data = ts.get_quote_endpoint(symbol=symbol)
+        current_price = real_time_data['05. price'].values[0]
+        print(f"MSFT Current Price: {current_price}")
 
         return hist_data, current_price
+
+
+
+
         
 
 
@@ -107,6 +107,7 @@ class IBapi(EWrapper, EClient):
         EWrapper.__init__(self)
         EClient.__init__(self, wrapper=self)
         self.bot = bot
+
 
 class BalanceApp(EWrapper, EClient):
     def __init__(self, ip_address, port_id, client_id):
@@ -122,7 +123,8 @@ class BalanceApp(EWrapper, EClient):
 
     def nextValidId(self, orderId: int):
         super().nextValidId(orderId)
-        self.reqAccountSummary(9001, "All", "$LEDGER")
+        self.nextorderId = orderId
+        print('The next valid order id is: ', self.nextorderId)
 
     def accountSummary(self, reqId: int, account: str, tag: str, value: str, currency: str):
         super().accountSummary(reqId, account, tag, value, currency)
@@ -136,56 +138,41 @@ class BalanceApp(EWrapper, EClient):
             return  # Ignore this error
 
 
-if __name__ == "__main__":
-    # TWS connection parameters
-    ip_address = "127.0.0.1"  # Replace with your TWS IP address
-    port_id = 7495 # Replace with your TWS port ID
-    client_id = 1  # Replace with your client ID
-
-    app = BalanceApp(ip_address, port_id, client_id)
-    app.start()
-
-    # Retrieve the account balance
-    if app.account_balance is not None:
-        print(f"Account Balance: {app.account_balance}")
-    else:
-        print("Unable to retrieve account balance.")
-
-
 
 
 
 class RiskManager:
     
-    def __init__(self, balance, stop_loss_pct, take_profit_pct):
+    def __init__(self, balance, stop_loss_pct):
         self.balance = balance
         self.stop_loss_pct = stop_loss_pct
-        self.take_profit_pct = take_profit_pct
+        self.max_loss_pct = 0.05  # maximum percentage of account balance that can be lost on a single trade
+        self.take_profit_pct = self.calculate_max_take_profit_pct()
+        
+    def calculate_max_take_profit_pct(self):
+        return self.max_loss_pct / (1 - self.stop_loss_pct)
         
     def calculate_order_size(self, current_price):
-        max_loss_pct = 0.5  # maximum percentage of account balance that can be lost on a single trade
-        risk_amount = self.balance * max_loss_pct
+        risk_amount = self.balance * self.max_loss_pct
         stop_loss_price = current_price * (1 - self.stop_loss_pct)
         take_profit_price = current_price * (1 + self.take_profit_pct)
         
-        # calculate number of shares to buy based on risk amount and stop loss price
         order_size = risk_amount / (current_price - stop_loss_price)
         
-        # calculate potential profit based on take profit price
         potential_profit = order_size * (take_profit_price - current_price)
         
-        # if potential profit is less than risk amount, reduce order size to minimize risk
         if potential_profit < risk_amount:
             order_size = risk_amount / (take_profit_price - current_price)
             
         return int(order_size)
         
     def calculate_risk(self, price, stop_loss):
-        risk = (self.risk_percentage / 100) * self.balance
+        risk = self.balance * self.max_loss_pct
         max_loss = price - stop_loss
         position_size = risk / max_loss
 
         return position_size
+
 
 
 
@@ -199,7 +186,7 @@ class NNTS:
         self.epochs = epochs
         self.batch_size = batch_size
         self.scaler = MinMaxScaler()
-        self.risk_manager = RiskManager()
+        self.risk_manager = RiskManager(balance=150, stop_loss_pct=0.05)
 
     def _prepare_data(self, data):
         self.scaler.fit(data)
@@ -226,12 +213,12 @@ class NNTS:
         
         return model
 
-    def generate_signals(self, data, strategy, max_trades=2000):
+    def generate_signals(self, data, strategy, max_trades=300):
         avg_trades_per_day = int(len(data) / self.lookback)
-        if avg_trades_per_day < 500:
+        if avg_trades_per_day < 250:
             self.units *= 2
-        elif avg_trades_per_day > 2000:
-            self.lookback = int(len(data) / 2000)
+        elif avg_trades_per_day > 300:
+            self.lookback = int(len(data) / 300)
         batch_size = max(int(avg_trades_per_day / self.epochs), 1)
         X, y = self._prepare_data(data)
         model = self._build_model(X)
@@ -416,11 +403,10 @@ class Bot:
         print("execute trade")
         contract = Contract()
         contract.symbol = 'EURUSD'
-        contract.secType = "forex"  # change to the security type you are trading
-        contract.currency = "EUR"  # change to the currency of the security
-        contract.exchange = "MKT"  # change to the exchange you are trading on
-    
-        # create a new order object
+        contract.secType = "forex"  
+        contract.currency = "EUR"  
+        contract.exchange = "MKT"  
+
         order = Order() 
         if side == 'BUY':
             order.action = 'BUY'
@@ -448,17 +434,17 @@ class Bot:
             self.ib.nextOrderId += 1
 
         today = datetime.datetime.today()
-        if today.weekday() < 5:  # Check if today is a weekday (0 = Monday, ..., 4 = Friday)
+        if today.weekday() < 5: 
             # Execute the trade
             signal = generate_signals()
             if signal == 'BUY':
-                print("Going long...")
+                print("Mechi position long...")
             elif signal == 'SELL':
-                print("Going short...")
+                print("Mechi position short...")
             else:
-                print("No signal to trade with mate.")
+                print("Ma fomech signal...")
         else:
-            print("Today is a weekend, there is no trading. So chill-out dude...")
+            print("Lioum Weekend ma fomech des signaux...")
         
     def run_loop(self):
         self.ib.run()
@@ -479,28 +465,35 @@ market.fx_price()
 market.stock_price()
 
 # Call the Balance class
+ip_address = "127.0.0.1" 
+port_id = 7495 
+client_id = 1  
+current_price=market.fx_price(real_time= True)
+price=market.fx_price()
 
+
+bot.nextorderId = None
+bot.run_loop();
+print("wa7el Houni");
 balance = BalanceApp(ip_address,port_id,client_id)
 balance.start()
-balance.nextValidId()
-balance.accountSummary()
-balance.error()
+balance.accountSummary(reqId=123, account="DU11643091", tag="TotalCashValue", value="12345", currency="EUR")
+balance.error(reqId=123, errorCode=456, errorString="Some error message")
 
 # Call the RiskManager class
 
-riskmg = RiskManager()
-riskmg.update_equity()
-riskmg.calculate_risk()
-riskmg.can_open_position()
-riskmg.can_afford_position()
-riskmg.open_position()
-riskmg.close_position()
-riskmg.update_position()
+riskmg = RiskManager(balance=150, stop_loss_pct=0.05)
+max_take_profit_pct = riskmg.calculate_max_take_profit_pct()
+print("Maximum take profit pct: ", max_take_profit_pct)
+order_size=riskmg.calculate_order_size(current_price)
+print("Order size:", order_size)
+riskmg.calculate_risk(price, stop_loss=7.5)
 
 # Call the NNTS class
 
-nnts = NNTS()
-nnts._prepare_data()
+nnts = NNTS(lookback=50, units=128, dropout=0.5, epochs=200, batch_size=64)
+data=market.fx_price()
+nnts._prepare_data(data)
 nnts._build_model()
 nnts.generate_signals()
 
@@ -529,7 +522,4 @@ pcorder.place_order()
 pcorder.cancel_order()
 
 # Call Bot function
-
-bot = Bot()
 bot.execute_trade()
-bot.run_loop()
