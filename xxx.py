@@ -97,6 +97,33 @@ class Market:
         return hist_data, current_price
 
 
+def market_to_dataframe():
+    # Create an instance of Market
+    market = Market('symbol', 'yahoo_ticker', 'EURUSD', 365)
+
+    # Get the FX price data and stock price data
+    fx_price = market.fx_price(real_time=True)
+    hist_data, stock_price = market.stock_price()
+
+    # Create a DataFrame with the data
+    data = {
+        'Symbol': 'EURUSD',
+        'Yahoo Ticker': 'MSFT',
+        'Currency': 'EUR',
+        'Historical Window': [market.hist_window],
+        'FX Price': [fx_price],
+        'MSFT Historical Price': hist_data['Close'].values[-1],
+        'MSFT Current Price': stock_price
+    }
+    df = pd.DataFrame(data)
+
+    return df
+
+
+
+
+
+
 
 
         
@@ -227,21 +254,19 @@ class NNTS:
         signals = np.zeros(len(data))
         signals[self.lookback:] = np.where(y_pred > y, 1, -1)
         signals = self.risk_manager.filter_signals(signals, data)
-        
+
         if strategy == 'buy':
             signals[signals != 1] = 0
         elif strategy == 'sell':
             signals[signals != -1] = 0
-        else:
-            signals = np.zeros(len(data))
-            
+
         if np.count_nonzero(signals) > max_trades:
             excess_trades = np.count_nonzero(signals) - max_trades
             if excess_trades < np.count_nonzero(signals == 1):
                 signals[signals == 1][:excess_trades] = 0
             else:
                 signals[signals == -1][:excess_trades] = 0
-                
+
         return signals
 
 
@@ -249,10 +274,9 @@ class NNTS:
 
 
 class TradingProcess:
-    def __init__(self, balance, risk_percentage, transaction_fee):
+    def __init__(self, balance, risk_percentage):
         self.balance = balance
         self.risk_percentage = risk_percentage
-        self.transaction_fee = transaction_fee
         self.scaler = StandardScaler()
         self.model = MLPClassifier(hidden_layer_sizes=(64, 32), activation='relu', max_iter=500, random_state=42)
 
@@ -270,7 +294,7 @@ class TradingProcess:
         position_size = self.calculate_risk(price, stop_loss)
         return self.balance >= position_size * price
 
-    def can_afford_position(self, price, stop_loss, size):
+    def can_afford_position(self, price, size):
         position_cost = size * price
         return self.balance >= position_cost
 
@@ -285,7 +309,7 @@ class TradingProcess:
 
     def close_position(self, index, price):
         position = self.positions.pop(index)
-        profit = position['size'] * (price - position['price']) - 2 * self.transaction_fee
+        profit = position['size'] * (price - position['price'])
         self.balance += profit
         self.profits.append(profit)
         return profit
@@ -295,7 +319,7 @@ class TradingProcess:
         if price <= position['stop_loss']:
             return self.close_position(index, position['stop_loss'])
         else:
-            position['profit'] = position['size'] * (price - position['price']) - 2 * self.transaction_fee
+            position['profit'] = position['size'] * (price - position['price'])
             return position['profit']
 
     def fit(self, X, y):
@@ -492,27 +516,27 @@ riskmg.calculate_risk(price, stop_loss=7.5)
 # Call the NNTS class
 
 nnts = NNTS(lookback=50, units=128, dropout=0.5, epochs=200, batch_size=64)
-data=market.fx_price()
-nnts._prepare_data(data)
-nnts._build_model()
-nnts.generate_signals()
+X, y=nnts._prepare_data(data)
+model=nnts._build_model(X)
+buy_signals=nnts.generate_signals(data, strategy='buy')
+sell_signals=nnts.generate_signals(data, strategy='sell')
 
 # Call the TradingProcess class
 
-tp = TradingProcess()
+tp = TradingProcess(balance, risk_percentage=0.05)
 tp.update_equity()
-tp.can_open_position()
+tp.can_open_position(price, stop_loss=0.05)
 tp.can_afford_position()
 tp.open_position()
 tp.close_position()
 tp.update_position()
-tp.fit()
-tp.predict()
+tp.fit(X, y)
+tp.predict(X)
 
 # Call the DataProcessor class
 
-datapp = DataProcessor()
-datapp.preprocess_data()
+datapp = DataProcessor(feature_collumns=["open","high", "low", "close", "volume"])
+datapp.preprocess_data(data)
 
 
 # Call PlaceCancelOrder class
@@ -522,4 +546,5 @@ pcorder.place_order()
 pcorder.cancel_order()
 
 # Call Bot function
-bot.execute_trade()
+bot.execute_trade(price)
+
