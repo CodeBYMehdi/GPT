@@ -51,12 +51,12 @@ from alpha_vantage.techindicators import TechIndicators
 
 # Initialize Alpha Vantage API key
 
-alphavantage_api_key = 'QUJ00N0C3VLU7NKC'
+alphavantage_api_key = 'PUZNEBWHAHJE76R2'
 
 
 
 class Market:
-    def __init__(self, symbol, yahoo_ticker, currency='EURUSD', hist_window=365):
+    def __init__(self, symbol, yahoo_ticker, currency='EUR', hist_window=365):
         self.symbol = symbol
         self.yahoo_ticker = yahoo_ticker
         self.currency = currency
@@ -97,27 +97,25 @@ class Market:
         return hist_data, current_price
 
 
-def market_to_dataframe():
-    # Create an instance of Market
-    market = Market('symbol', 'yahoo_ticker', 'EURUSD', 365)
+    def market_to_dataframe(self):
 
-    # Get the FX price data and stock price data
-    fx_price = market.fx_price(real_time=True)
-    hist_data, stock_price = market.stock_price()
+        market = Market('symbol', 'yahoo_ticker', 'EURUSD', 365)
 
-    # Create a DataFrame with the data
-    data = {
-        'Symbol': 'EURUSD',
-        'Yahoo Ticker': 'MSFT',
-        'Currency': 'EUR',
-        'Historical Window': [market.hist_window],
-        'FX Price': [fx_price],
-        'MSFT Historical Price': hist_data['Close'].values[-1],
-        'MSFT Current Price': stock_price
-    }
-    df = pd.DataFrame(data)
+        fx_price = market.fx_price(real_time=True)
+        hist_data, stock_price = market.stock_price()
 
-    return df
+        data = {
+            'Symbol': ['EURUSD'],
+            'Yahoo Ticker': ['MSFT'],
+            'Currency': ['EUR'],
+            'Historical Window': [market.hist_window],
+            'FX Price': [fx_price],
+            'MSFT Historical Price': hist_data['Close'].values[-1],
+            'MSFT Current Price': [stock_price]
+        }
+        df = pd.DataFrame(data)
+
+        return df
 
 
 
@@ -436,9 +434,9 @@ class Bot:
             order.action = 'BUY'
         if side == 'SELL':
             order.action = 'SELL'
-        order.orderType = 'MKT'  # "LMT" for limit order, "MKT" for market order
+        order.orderType = 'MKT' 
         order.totalQuantity = quantity
-        order.lmtPrice = price  # specify the price for limit orders
+        order.lmtPrice = price 
     
         # submit the order to the TWS
         self.ib.placeOrder(self.ib.nextOrderId, contract, order)
@@ -476,17 +474,18 @@ class Bot:
 
 
 
+#run loop
 
-# Run the loop
 print("test 1")
 bot = Bot()
 print("test 2")    
 
 # Call Market class
 
-market = Market(symbol='EURUSD', yahoo_ticker='MSFT')
+market = Market(symbol='EURUSD', yahoo_ticker='MSFT', currency='EUR', hist_window=365)
 market.fx_price()
 market.stock_price()
+data=market.market_to_dataframe()
 
 # Call the Balance class
 ip_address = "127.0.0.1" 
@@ -547,4 +546,3 @@ pcorder.cancel_order()
 
 # Call Bot function
 bot.execute_trade(price)
-
