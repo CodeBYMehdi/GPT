@@ -44,63 +44,71 @@ from keras.optimizers import Adam
 
 # Import the dataset module
 
-from alpha_vantage.foreignexchange import ForeignExchange
-from alpha_vantage.timeseries import TimeSeries
-from alpha_vantage.techindicators import TechIndicators
+from tiingo import TiingoClient
 
 
-# Initialize Alpha Vantage API key
+# Tiingo API key
+api_key = 'a26909a25e833c1f0dcc1a31d8f87d20fb712018'
 
-alphavantage_api_key = 'PUZNEBWHAHJE76R2'
-
-
+# Tiingo client initialization
+config = {
+    'session': True,
+    'api_key': api_key
+}
+client = TiingoClient(config)
 
 class Market:
-    def __init__(self, symbol, yahoo_ticker, currency='EUR', hist_window=365):
+    
+    def __init__(self, symbol='EURUSD', yahoo_ticker='MSFT', currency='EUR', hist_window=365):
         self.symbol = symbol
         self.yahoo_ticker = yahoo_ticker
         self.currency = currency
         self.hist_window = hist_window
 
     def fx_price(self, real_time=True):
-        if real_time:
-            fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
-            data, meta_data = fx.get_currency_exchange_rate(from_currency='EUR', to_currency='USD')
-            price = data['5. Exchange Rate'][0]
-        else:
-            fx = ForeignExchange(key=alphavantage_api_key, output_format='pandas')
-            data, meta_data = fx.get_currency_exchange_daily(from_symbol='EUR', to_symbol='USD', outputsize='compact')
-            price = data['4. close'][-1]
-        price = float(price)
-        print(f"EURUSD Current Spot: {price}")
+        headers = {
+            'Content-Type': 'application/json'
+        }
 
-        return price
+        requestResponse = requests.get("https://api.tiingo.com/tiingo/fx/top?tickers=eurusd&token=a26909a25e833c1f0dcc1a31d8f87d20fb712018", headers=headers)
+
+        if requestResponse.status_code == 200:
+            data = requestResponse.json()
+            if isinstance(data, list) and len(data) > 0:
+            # Assuming the data is in the format of a list with at least one item
+                fx_rate = data[0]
+                currency_pair = fx_rate.get('ticker')
+                last_price = fx_rate.get('last')
+                if currency_pair and last_price:
+                    print(f"Currency Pair: {currency_pair}, Last Price: {last_price}")
+                    return last_price
+                else:
+                    print(f"Error: Data is missing currency_pair or last_price.")
+            else:
+                print(f"Error: Invalid or empty data format received from the API.")
+        else:
+            print(f"Error: Failed to fetch data. Status code: {requestResponse.status_code}")
+
+            return None
+
+
 
     def stock_price(self):
-
-        api_key = 'QUJ00N0C3VLU7NKC'
-        symbol = 'MSFT'
-
-        ts = TimeSeries(key=api_key, output_format='pandas')
-        historical_data, meta_data = ts.get_daily(symbol=symbol, outputsize='full')
-        hist_data = historical_data[['4. close']]
-        hist_data = hist_data.rename(columns={'4. close': 'Close'})
+        historical_data = client.get_dataframe(self.yahoo_ticker, startDate='2012-08-02', endDate='2022-08-02')
+        hist_data = historical_data[['close']]
+        hist_data = hist_data.rename(columns={'close': 'Close'})
         hist_data.index = pd.to_datetime(hist_data.index)
 
-        print(f"MSFT Historical Price: {hist_data['Close'].values[-1]}")
+        print(f"{self.yahoo_ticker} Historical Price: {hist_data['Close'].values[-1]}")
 
-        ts = TimeSeries(key=api_key, output_format='pandas')
-        real_time_data, meta_data = ts.get_quote_endpoint(symbol=symbol)
-        current_price = real_time_data['05. price'].values[0]
-        print(f"MSFT Current Price: {current_price}")
+        real_time_data = client.get_ticker_price(self.yahoo_ticker)
+        current_price = real_time_data[0]['last']
+        print(f"{self.yahoo_ticker} Current Price: {current_price}")
 
         return hist_data, current_price
 
-
     def market_to_dataframe(self):
-
-        market = Market('symbol', 'yahoo_ticker', 'EURUSD', 365)
-
+        market = Market('symbol', 'MSFT', 'EUR', 365)
         fx_price = market.fx_price(real_time=True)
         hist_data, stock_price = market.stock_price()
 
@@ -116,8 +124,6 @@ class Market:
         df = pd.DataFrame(data)
 
         return df
-
-
 
 
 
@@ -372,9 +378,9 @@ class PlaceCancelOrder:
         self.units = None
 
 
-    def place_order(self, signal, symbol, order_type):
+    def place_order(self, buy_signals, sell_signals, symbol, order_type):
         self.units = self.calculate_units()
-        if signal == 'buy':
+        if buy_signals == 'buy':
             self.orders.append({'side': 'buy',
                                 'units': self.units,
                                 'strategy': 'NNTS',
@@ -382,7 +388,7 @@ class PlaceCancelOrder:
                                 'type': order_type,
                                 'stop_loss': self.stop_loss,
                                 'take_profit': self.take_profit})
-        elif signal == 'sell':
+        elif sell_signals == 'sell':
             self.orders.append({'side': 'sell',
                                 'units': self.units,
                                 'strategy': 'NNTS',
@@ -419,7 +425,7 @@ class Bot:
     def connectAck(self):
         print("Connected to TWS")
 
-    def execute_trade(self, side, quantity, price):
+    def execute_trade(self, buy_signals, sell_signals, quantity, price):
         # create a new contract object
         print("execute")
         print("execute trade")
@@ -430,9 +436,9 @@ class Bot:
         contract.exchange = "MKT"  
 
         order = Order() 
-        if side == 'BUY':
+        if buy_signals == 'BUY':
             order.action = 'BUY'
-        if side == 'SELL':
+        if sell_signals == 'SELL':
             order.action = 'SELL'
         order.orderType = 'MKT' 
         order.totalQuantity = quantity
@@ -541,8 +547,8 @@ datapp.preprocess_data(data)
 # Call PlaceCancelOrder class
 
 pcorder = PlaceCancelOrder()
-pcorder.place_order(symbol='EURUSD', order_type='MKT')
+pcorder.place_order(buy_signals, sell_signals, symbol='EURUSD', order_type='MKT')
 pcorder.cancel_order(order_id=1)
 
 # Call Bot function
-bot.execute_trade(price)
+bot.execute_trade(buy_signals, sell_signals, price)
