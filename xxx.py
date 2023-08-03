@@ -505,7 +505,7 @@ balance.error(reqId=123, errorCode=456, errorString="Some error message")
 
 # Call the RiskManager class
 
-riskmg = RiskManager(balance=150, stop_loss_pct=0.05)
+riskmg = RiskManager(balance, stop_loss_pct=0.05)
 max_take_profit_pct = riskmg.calculate_max_take_profit_pct()
 print("Maximum take profit pct: ", max_take_profit_pct)
 order_size=riskmg.calculate_order_size(current_price)
@@ -525,10 +525,10 @@ sell_signals=nnts.generate_signals(data, strategy='sell')
 tp = TradingProcess(balance, risk_percentage=0.05)
 tp.update_equity()
 tp.can_open_position(price, stop_loss=0.05)
-tp.can_afford_position()
-tp.open_position()
-tp.close_position()
-tp.update_position()
+tp.can_afford_position(price)
+tp.open_position(price, stop_loss=0.05)
+tp.close_position(price)
+tp.update_position(price)
 tp.fit(X, y)
 tp.predict(X)
 
@@ -541,8 +541,8 @@ datapp.preprocess_data(data)
 # Call PlaceCancelOrder class
 
 pcorder = PlaceCancelOrder()
-pcorder.place_order()
-pcorder.cancel_order()
+pcorder.place_order(symbol='EURUSD', order_type='MKT')
+pcorder.cancel_order(order_id=1)
 
 # Call Bot function
 bot.execute_trade(price)
